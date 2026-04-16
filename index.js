@@ -383,75 +383,186 @@ function getMilestoneAdaptatif(pctObjectif) {
 
   if (isHebdo) {
 
+    // ── Nombre de jours ouvrés restants dans la semaine ──────
+    // jourRestants : 5=lun, 4=mar, 3=mer, 2=jeu, 1=ven, 0=week-end
+    const joursOuvresRestants = jour >= 1 && jour <= 5 ? 6 - jour : 0;
+    // % d'avancement attendu à ce stade (ex: mercredi = 3/5 jours écoulés = 60% attendu)
+    const pctAttendu = jour >= 1 && jour <= 5 ? Math.round(((jour - 1) / 4) * 100) : 100;
+    const retard = pctAttendu - pctObjectif; // positif = en retard, négatif = en avance
+
     // LUNDI
     if (jour === 1) {
-      if (pctObjectif < 10) return pick([
-        {emoji:"🚀",header:"LUNDI ET ON DÉMARRE À PEINE — ON S'ACTIVE",texte:"C'est lundi, la semaine vient de commencer et l'objectif nous attend. Qui ouvre le bal ? Quitterie et Emmanuelle regardent 👑"},
-        {emoji:"☕",header:"LUNDI MATIN — LE COMPTEUR EST À 0, PAS NORMAL",texte:"On est lundi et on a quasiment rien fait. La semaine se gagne dès le premier jour. Allez les gars, on se réveille !"},
-      ]);
-      if (pctObjectif < 30) return pick([
-        {emoji:"💪",header:"LUNDI — ON EST PARTIS MAIS C'EST PAS ASSEZ",texte:"Bon début mais le rythme doit s'accélérer. On a toute la semaine devant nous, autant la commencer fort. Allez !"},
-        {emoji:"🔥",header:"LUNDI — LE RYTHME EST LÀ, ON CONTINUE",texte:"Belle mise en route. Si on garde ce rythme toute la semaine, Philippe va être plus que content 😤"},
-      ]);
+      if (h < 12) {
+        if (pctObjectif < 10) return pick([
+          {emoji:"🚀",header:"LUNDI MATIN — PREMIER CLOSE DE LA SEMAINE, QUI OUVRE ?",texte:"C'est lundi matin et le compteur attend. La semaine se gagne dès maintenant. Quitterie et Emmanuelle regardent 👑"},
+          {emoji:"☕",header:"LUNDI MATIN — LE COMPTEUR EST À 0, ON DÉMARRE",texte:"On est lundi, la semaine vient de commencer. Chaque close maintenant c'est de l'avance sur l'objectif. Allez les gars !"},
+        ]);
+        if (pctObjectif < 30) return pick([
+          {emoji:"💪",header:"LUNDI MATIN — BON DÉPART, ON ACCÉLÈRE",texte:"Belle mise en route ce matin. On a toute la semaine devant nous, autant la commencer fort. Gardez cette cadence !"},
+          {emoji:"🔥",header:"LUNDI — LE RYTHME EST LÀ DÈS LE MATIN",texte:"Philippe va être content de voir ces chiffres ce matin 😤 Si on garde ce rythme toute la semaine, c'est dans la boîte !"},
+        ]);
+      }
+      if (h >= 12 && h < 15) {
+        if (pctObjectif < 20) return pick([
+          {emoji:"🚨",header:"LUNDI APRÈM — ON A QUASI RIEN FAIT CE MATIN",texte:"C'est déjà l'aprèm du lundi et le compteur est encore froid. La semaine se joue maintenant. Tout le monde dessus 😤"},
+          {emoji:"💥",header:"LUNDI MIDI — LE MATIN EST PASSÉ, L'APRÈM COMMENCE",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} L'aprèm du lundi c'est le moment de poser les bases. On envoie la frappe maintenant !`},
+        ]);
+        if (pctObjectif < 40) return pick([
+          {emoji:"⚡",header:"LUNDI APRÈM — ON CONTINUE SUR LA LANCÉE",texte:"Bonne matinée, belle mise en route. L'aprèm du lundi c'est pour consolider. On lâche rien 💪"},
+          {emoji:"🔥",header:"LUNDI — LE MOMENTUM EST LÀ, GARDEZ LA PRESSION",texte:"Si on ferme la journée avec ce rythme, la semaine va être belle. Quitterie va kiffer 👑"},
+        ]);
+      }
+      if (h >= 15) {
+        if (pctObjectif < 25) return pick([
+          {emoji:"🚨",header:"LUNDI SOIR — ON EST EN RETARD, DERNIER PUSH",texte:"On finit le lundi avec trop peu. Le reste de la semaine va devoir compenser fort. On donne tout jusqu'à la fermeture 🔥"},
+          {emoji:"💥",header:"FIN DE LUNDI — LE SPRINT FINAL",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} Dernier push du lundi. Chaque close maintenant compte double pour le moral de la semaine 💪`},
+        ]);
+        if (pctObjectif >= 25) return pick([
+          {emoji:"💪",header:"LUNDI — ON FERME BIEN CETTE JOURNÉE",texte:"Belle journée du lundi. On pose des bases solides pour la semaine. Philippe va aimer ce compteur ce soir 😤"},
+          {emoji:"🔥",header:"FIN DE LUNDI — LE DÉMARRAGE EST SOLIDE",texte:"On ferme le lundi avec du concret. Si on continue comme ça mardi, la semaine est gagnée. Des GOAT 🐐"},
+        ]);
+      }
     }
 
     // MARDI
     if (jour === 2) {
-      if (pctObjectif < 20) return pick([
-        {emoji:"🚨",header:"MARDI ET ON EST À PEINE À 20% — RÉVEIL GÉNÉRAL",texte:"Mardi matin et l'objectif de la semaine est à peine entamé. Philippe ne va pas être content si ça continue comme ça. On accélère MAINTENANT 😤"},
-        {emoji:"⚡",header:"MARDI — ON EST EN RETARD SUR LA SEMAINE",texte:"On est mardi et on a pas fait assez. Le reste de la semaine va devoir compenser. Tout le monde sur le pont, on envoie la frappe !"},
-      ]);
-      if (pctObjectif < 40) return pick([
-        {emoji:"💪",header:"MARDI — ON AVANCE MAIS C'EST JUSTE",texte:"C'est mardi et on est à moins de 40%. Pour atteindre l'objectif de la semaine il va falloir mettre le turbo. Allez les cracks !"},
-        {emoji:"🔥",header:"MARDI — LE MOMENTUM EST LÀ, ON LÂCHE RIEN",texte:"Bon rythme pour un mardi. Si on continue comme ça la semaine va être belle. Quitterie va être fière 👑"},
-      ]);
+      if (h < 12) {
+        if (pctObjectif < 15) return pick([
+          {emoji:"🚨",header:"MARDI MATIN — ON EST EN RETARD SUR LA SEMAINE",texte:"Mardi matin et le compteur est encore froid. Philippe ne va pas être content si ça continue. On accélère MAINTENANT 😤"},
+          {emoji:"⚡",header:"MARDI — LA SEMAINE DOIT DÉMARRER MAINTENANT",texte:"On est mardi et on n'a pas assez fait hier. Aujourd'hui on rattrape. Tout le monde sur le pont !"},
+        ]);
+        if (pctObjectif < 35) return pick([
+          {emoji:"💪",header:"MARDI MATIN — ON EST DANS LES CLOUS",texte:"Bon rythme pour un mardi matin. Continuez comme ça et l'objectif de la semaine va tomber 🎯"},
+          {emoji:"🔥",header:"MARDI — LE MOMENTUM EST LÀ",texte:"Si on garde ce rythme aujourd'hui, mercredi on sera en avance. C'est exactement ce qu'on veut. Allez !"},
+        ]);
+      }
+      if (h >= 12 && h < 15) {
+        if (pctObjectif < 25) return pick([
+          {emoji:"🚨",header:"MARDI MIDI — C'EST CHAUD, ON DOIT ACCÉLÉRER",texte:"Mardi aprèm et on est trop loin de l'objectif. Le reste de la semaine va être tendu si on n'accélère pas là. Allez les gars 😤"},
+          {emoji:"💥",header:"MARDI APRÈM — LA REMONTADA COMMENCE MAINTENANT",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} On a encore 3 jours pour rattraper ça. Closes en série, on y va !`},
+        ]);
+        if (pctObjectif < 45) return pick([
+          {emoji:"⚡",header:"MARDI MIDI — ON EST SUR LE FIL",texte:"Mardi aprèm et on est dans les clous mais juste. L'aprèm doit être chargée. On pousse ensemble 💪"},
+          {emoji:"🔥",header:"MARDI — LE GAME EST OUVERT",texte:"Bon positionnement en milieu de mardi. L'aprèm va faire la différence. Qui sort le prochain close ? 🎯"},
+        ]);
+      }
+      if (h >= 15) {
+        if (pctObjectif < 30) return pick([
+          {emoji:"🚨",header:"FIN DE MARDI — ON EST EN RETARD, DERNIER PUSH",texte:"On finit mardi trop loin de l'objectif. Le reste de la semaine doit être parfait. Allez, dernier push avant demain 🔥"},
+          {emoji:"💥",header:"MARDI SOIR — MERCREDI VA ÊTRE DÉCISIF",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} On a encore 3 jours mais faut pas perdre de temps. Le push commence maintenant 💪`},
+        ]);
+        if (pctObjectif >= 30) return pick([
+          {emoji:"💪",header:"FIN DE MARDI — ON FERME BIEN",texte:"Bonne journée du mardi. On est dans le game. Mercredi on continue et l'objectif va tomber 🎯"},
+          {emoji:"🔥",header:"MARDI — BELLE JOURNÉE, BELLES BASES",texte:"On ferme mardi en bonne posture. Quitterie va être fière de ces chiffres 👑 On continue demain !"},
+        ]);
+      }
     }
 
     // MERCREDI
     if (jour === 3) {
-      if (pctObjectif < 30) return pick([
-        {emoji:"🚨",header:"MERCREDI MI-SEMAINE ET ON EST À 30% — C'EST CHAUD",texte:"On est au milieu de la semaine et on a fait que 30% de l'objectif. Faut pas que Philippe voie ça... On inverse la tendance MAINTENANT. Allez !"},
-        {emoji:"💥",header:"MERCREDI — LA SEMAINE SE JOUE MAINTENANT",texte:"Milieu de semaine, milieu de l'objectif à faire. C'est le moment de tout donner. Les boss finals closent maintenant 👑"},
-      ]);
-      if (pctObjectif < 50) return pick([
-        {emoji:"⚡",header:"MERCREDI — ON EST PILE SUR LE FIL",texte:"Mi-semaine et à moitié de l'objectif. C'est bien mais c'est pas assez. Les 2 derniers jours vont être décisifs. On double la cadence !"},
-        {emoji:"🔥",header:"HUMP DAY — L'OBJECTIF EST À PORTÉE",texte:"Mercredi et on est dans les clous. La descente vers la fin de semaine commence. On garde le rythme et ça va tomber !"},
-      ]);
-      if (pctObjectif >= 50) return pick([
-        {emoji:"💪",header:"MERCREDI — VOUS ÊTES EN AVANCE SUR LA SEMAINE",texte:"Mi-semaine et déjà plus de 50% de l'objectif. C'est zinzin. Quitterie et Emmanuelle vont kiffer ce compteur 👑🔥"},
-        {emoji:"🏆",header:"HUMP DAY — VOUS ENVOYEZ DE LA FRAPPE",texte:"Mercredi et on est largement dans les clous. Cette équipe c'est des monstres. Philippe peut être fier 😤"},
-      ]);
+      if (h < 12) {
+        if (pctObjectif < 30) return pick([
+          {emoji:"🚨",header:"MERCREDI MATIN — MI-SEMAINE ET ON EST À 30%",texte:"On est au milieu de la semaine et l'objectif est loin. Faut pas que Philippe voie ça... On inverse la tendance MAINTENANT. Allez !"},
+          {emoji:"💥",header:"HUMP DAY — LA SEMAINE SE JOUE MAINTENANT",texte:"Mercredi matin, mi-semaine. C'est le moment de tout donner. Les boss finals closent maintenant pour inverser le compteur 👑"},
+        ]);
+        if (pctObjectif < 50) return pick([
+          {emoji:"⚡",header:"MERCREDI — ON EST PILE SUR LE FIL",texte:"Mi-semaine et pile à la moitié de l'objectif. C'est le minimum. L'aprèm doit être plus forte que le matin. Allez !"},
+          {emoji:"🔥",header:"HUMP DAY MATIN — LE RYTHME EST BON",texte:"Mercredi matin et on est dans les clous. La descente vers vendredi commence. On garde le rythme et ça va tomber !"},
+        ]);
+        if (pctObjectif >= 50) return pick([
+          {emoji:"💪",header:"MERCREDI MATIN — DÉJÀ 50%+ C'EST ZINZIN",texte:"Mi-semaine et déjà plus de la moitié de l'objectif. Quitterie et Emmanuelle vont kiffer ce compteur 👑🔥"},
+          {emoji:"🏆",header:"HUMP DAY — VOUS ÊTES EN AVANCE",texte:"Mercredi matin et déjà largement dans les clous. Cette équipe c'est des monstres. Philippe peut être fier 😤"},
+        ]);
+      }
+      if (h >= 12) {
+        if (pctObjectif < 40) return pick([
+          {emoji:"🚨",header:"MERCREDI APRÈM — L'OBJECTIF EST EN DANGER",texte:"Mercredi aprèm et on est encore loin. Les 2 derniers jours doivent être parfaits. On envoie la frappe MAINTENANT 😤"},
+          {emoji:"💥",header:"MERCREDI SOIR — LA REMONTADA OU JAMAIS",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} 2 jours restants. Chaque close maintenant est critique. Allez les cracks !`},
+        ]);
+        if (pctObjectif < 60) return pick([
+          {emoji:"⚡",header:"MERCREDI APRÈM — ON EST DANS LA COURSE",texte:"Mercredi aprèm et on est encore dans le game. Les 2 derniers jours vont être décisifs. On double la cadence !"},
+          {emoji:"🔥",header:"MI-SEMAINE — LE MOMENTUM EST LÀ",texte:"On est bien positionnés pour la fin de semaine. Jeudi et vendredi vont faire la différence. On lâche rien 💪"},
+        ]);
+        if (pctObjectif >= 60) return pick([
+          {emoji:"🏆",header:"MERCREDI APRÈM — L'OBJECTIF EST À PORTÉE",texte:"Plus de 60% mercredi aprèm c'est masterclass. 2 jours pour finir proprement. Vous êtes des GOAT 🐐"},
+          {emoji:"💪",header:"HUMP DAY — VOUS AVEZ FAIT L'ESSENTIEL",texte:"Mercredi aprèm avec 60%+. Jeudi et vendredi pour finir fort et célébrer. Quitterie va adorer 👑"},
+        ]);
+      }
     }
 
     // JEUDI
     if (jour === 4) {
-      if (pctObjectif < 40) return pick([
-        {emoji:"🚨",header:"JEUDI ET ON EST À 40% — L'AFTERWORK AU 7 EST EN DANGER 🍺",texte:"On est jeudi et à moins de 40%. Le 7 ce soir ça va être compliqué si on n'accélère pas. Tout le monde sur le pont, MAINTENANT 😤"},
-        {emoji:"💥",header:"JEUDI — DERNIER VRAI SPRINT DE LA SEMAINE",texte:`C'est jeudi, avant-dernier jour. L'objectif est loin et le temps presse. ${pick(MESSAGES_PHILIPPE_PRESSION)} Allez les gars !`},
-      ]);
-      if (pctObjectif < 70) return pick([
-        {emoji:"🔥",header:"JEUDI — ON Y EST PRESQUE, FINISSONS LE BOULOT",texte:"On est jeudi et on approche. L'afterwork au 7 se mérite avec ces derniers closes. Qui balance le prochain deal ? 🍺"},
-        {emoji:"⚡",header:"JEUDI — LE FINISH EST LÀ",texte:"Avant-dernier jour et on est dans la course. Les boss finals closent maintenant pour finir la semaine en beauté 👑"},
-      ]);
-      if (pctObjectif >= 70) return pick([
-        {emoji:"🏆",header:"JEUDI — VOUS AVEZ PRESQUE TOUT FAIT 🍺🔥",texte:"70%+ jeudi c'est masterclass. Le 7 ce soir vous l'avez mérité. Finissez proprement et on célèbre 🍺"},
-        {emoji:"💪",header:"JEUDI — L'OBJECTIF VA TOMBER CETTE SEMAINE",texte:"On est jeudi, 70%+ de fait. Demain on finit ça proprement. Vous êtes des GOAT 🐐"},
-      ]);
+      if (h < 12) {
+        if (pctObjectif < 40) return pick([
+          {emoji:"🚨",header:"JEUDI MATIN — L'AFTERWORK AU 7 EST EN DANGER 🍺",texte:"On est jeudi matin et à moins de 40%. Le 7 ce soir ça va être compliqué si on n'accélère pas dès maintenant. ALLEZ 😤"},
+          {emoji:"💥",header:"JEUDI — DERNIER VRAI SPRINT, IL COMMENCE CE MATIN",texte:`C'est jeudi, avant-dernier jour. L'objectif est loin. ${pick(MESSAGES_PHILIPPE_PRESSION)} On envoie tout maintenant !`},
+        ]);
+        if (pctObjectif < 65) return pick([
+          {emoji:"🔥",header:"JEUDI MATIN — ON EST DANS LE GAME",texte:"Jeudi matin et on est dans la course. L'afterwork au 7 se mérite avec les closes d'aujourd'hui. Qui ouvre ce matin ? 🍺"},
+          {emoji:"⚡",header:"JEUDI — LE MOMENTUM EST LÀ",texte:"Avant-dernier jour et bien positionnés. Ce matin on finit de poser les bases, l'aprèm on clôture 👑"},
+        ]);
+        if (pctObjectif >= 65) return pick([
+          {emoji:"🏆",header:"JEUDI MATIN — VOUS AVEZ QUASI TOUT FAIT",texte:"65%+ jeudi matin c'est une semaine de feu. Le 7 ce soir vous l'avez amplement mérité. Finissez proprement 🍺🔥"},
+          {emoji:"💪",header:"JEUDI — L'OBJECTIF VA TOMBER AUJOURD'HUI",texte:"On est jeudi matin avec 65%+. Quelques closes et c'est dans la boîte cette semaine. Des GOAT 🐐"},
+        ]);
+      }
+      if (h >= 12) {
+        if (pctObjectif < 50) return pick([
+          {emoji:"🚨",header:"JEUDI APRÈM — URGENCE MAXIMALE 🚨",texte:"Jeudi aprèm et encore à moins de 50%. Dernier vrai sprint. Faut pas que Philippe voie ce compteur vendredi matin... On y va MAINTENANT 😤"},
+          {emoji:"💥",header:"JEUDI — LES DERNIÈRES HEURES COMPTENT DOUBLE",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} On a l'aprèm et le vendredi. C'est maintenant que les vrais closent. Allez !`},
+        ]);
+        if (pctObjectif < 75) return pick([
+          {emoji:"🔥",header:"JEUDI APRÈM — ON Y EST PRESQUE",texte:"Jeudi aprèm et on approche. Chaque close maintenant = un pas vers le 7 ce soir. Qui balance le prochain deal ? 🍺"},
+          {emoji:"⚡",header:"JEUDI — LE FINISH EST LÀ",texte:"On est dans la course jeudi aprèm. Les boss finals closent maintenant pour finir la semaine en beauté 👑"},
+        ]);
+        if (pctObjectif >= 75) return pick([
+          {emoji:"🏆",header:"JEUDI APRÈM — L'OBJECTIF VA TOMBER CE SOIR 🍺🔥",texte:"75%+ jeudi aprèm c'est masterclass. Le 7 ce soir vous l'avez mérité. Finissez proprement et on célèbre 🥂"},
+          {emoji:"💪",header:"JEUDI — QUELLE SEMAINE LES GARS",texte:"On est jeudi aprèm, 75%+ de fait. Demain on met le point final et c'est une semaine parfaite. GOAT 🐐"},
+        ]);
+      }
     }
 
     // VENDREDI
     if (jour === 5) {
+      if (h < 12) {
+        if (pctObjectif < 50) return pick([
+          {emoji:"🚨",header:"VENDREDI MATIN — L'OBJECTIF EST ENCORE LOIN 🚨",texte:"Dernier matin de la semaine et on est à moins de 50%. Le Brelan ce soir ça se mérite MAINTENANT. Tout le monde dessus 🍺🔥"},
+          {emoji:"💥",header:"VENDREDI — LA SEMAINE SE GAGNE CE MATIN",texte:"C'est vendredi matin. L'objectif est encore loin. Faut pas que Philippe voie ce compteur ce soir... On accélère, ALLEZ 😤"},
+        ]);
+        if (pctObjectif < 75) return pick([
+          {emoji:"🔥",header:"VENDREDI MATIN — ON EST DANS LE GAME",texte:"Vendredi matin et on est dans la course. Chaque close ce matin = un verre au Brelan ce soir. Qui est chaud ? 🍺"},
+          {emoji:"⚡",header:"VENDREDI — L'OBJECTIF EST À PORTÉE",texte:"On est bien positionnés pour finir fort cette semaine. Ce matin on attaque, l'aprèm on clôture 💪"},
+        ]);
+        if (pctObjectif >= 75) return pick([
+          {emoji:"🏆",header:"VENDREDI MATIN — QUELLE SEMAINE 🔥",texte:"75%+ vendredi matin c'est une semaine de feu. Quelques closes et c'est dans la boîte. Le Brelan est validé 🍺🎉"},
+          {emoji:"💪",header:"VENDREDI — VOUS FINISSEZ CETTE SEMAINE EN BEAUTÉ",texte:"Vendredi matin avec 75%+. Quitterie et Emmanuelle vont adorer ce compteur. On finit proprement 👑"},
+        ]);
+      }
+      if (h >= 12) {
+        if (pctObjectif < 50) return pick([
+          {emoji:"🚨",header:"VENDREDI APRÈM — C'EST MAINTENANT OU JAMAIS",texte:"Vendredi aprèm et on est à moins de 50%. Il reste quelques heures. Le Brelan ce soir c'est pour ceux qui closent LÀ. ALLEZ 🍺🔥"},
+          {emoji:"💥",header:"VENDREDI — LA SEMAINE SE FINIT MAINTENANT",texte:"Dernier aprèm de la semaine. Faut pas que Philippe voie ce compteur ce soir... On donne tout, MAINTENANT 😤"},
+        ]);
+        if (pctObjectif < 80) return pick([
+          {emoji:"🔥",header:"VENDREDI APRÈM — FINISSONS LE BOULOT 🍺",texte:"Vendredi aprèm et on approche. Chaque close maintenant = un verre au Brelan. Qui balance le prochain deal ?"},
+          {emoji:"⚡",header:"VENDREDI — L'OBJECTIF EST À PORTÉE DE MAIN",texte:"On y est presque. Quelques closes et cette semaine est dans la boîte. Vous êtes des monstres 💪"},
+        ]);
+        if (pctObjectif >= 80) return pick([
+          {emoji:"🏆",header:"VENDREDI APRÈM — VOUS FINISSEZ LA SEMAINE EN BEAUTÉ 🍺🎉",texte:"80%+ vendredi aprèm c'est une semaine de feu. Le Brelan ce soir c'est validé. Finissez proprement et on célèbre 🥂"},
+          {emoji:"💥",header:"VENDREDI — QUELLE SEMAINE LES GARS 🔥",texte:"Vendredi aprèm et on est à 80%+. Quitterie et Emmanuelle vont adorer ce compteur. On finit fort 🏆"},
+        ]);
+      }
+    }
+
+    // WEEK-END (samedi / dimanche) — rare mais possible
+    if (jour === 6 || jour === 0) {
       if (pctObjectif < 50) return pick([
-        {emoji:"🚨",header:"VENDREDI ET ON EST À MOINS DE 50% — C'EST MAINTENANT OU JAMAIS",texte:"Dernier jour de la semaine et on est à moins de 50%. Le Brelan ce soir c'est pour ceux qui closent MAINTENANT. Tout le monde dessus 🍺🔥"},
-        {emoji:"💥",header:"VENDREDI — LA SEMAINE SE FINIT AUJOURD'HUI",texte:"C'est vendredi et l'objectif est encore loin. Faut pas que Philippe voie ce compteur en fin de journée... On accélère, ALLEZ 😤"},
+        {emoji:"💪",header:"WEEK-END — LA SEMAINE PROCHAINE ON FRAPPE FORT",texte:`On finit la semaine à ${pctObjectif}%. Le weekend c'est pour recharger les batteries et revenir lundi en mode berserker 🔥`},
+        {emoji:"🎯",header:"WEEK-END — ON ANALYSE ET ON REVIENT PLUS FORTS",texte:`${pctObjectif}% cette semaine. Philippe va vouloir voir mieux la semaine prochaine. Weekend pour recharger, lundi pour attaquer 💪`},
       ]);
-      if (pctObjectif < 80) return pick([
-        {emoji:"🔥",header:"VENDREDI — ON EST DANS LE GAME, FINISSONS 🍺",texte:"Vendredi et on approche. Chaque close maintenant = un verre au Brelan. Qui est chaud pour finir la semaine en beauté ?"},
-        {emoji:"⚡",header:"VENDREDI — L'OBJECTIF EST À PORTÉE DE MAIN",texte:"On y est presque. Vendredi après-midi et l'objectif va tomber. Vous êtes des monstres, finissez le travail 💪"},
-      ]);
-      if (pctObjectif >= 80) return pick([
-        {emoji:"🏆",header:"VENDREDI — VOUS ALLEZ FINIR LA SEMAINE EN BEAUTÉ 🍺🎉",texte:"80%+ vendredi c'est une semaine de feu. Le Brelan ce soir c'est validé. Finissez proprement et on célèbre 🥂"},
-        {emoji:"💥",header:"VENDREDI — QUELLE SEMAINE LES GARS 🔥",texte:"Vendredi et on est à 80%+. Quitterie et Emmanuelle vont adorer ce compteur. On finit fort et on profite du weekend 🏆"},
+      return pick([
+        {emoji:"🏆",header:"WEEK-END — BELLE SEMAINE LES GARS",texte:`${pctObjectif}% — c'est une semaine solide. Profitez du weekend, vous le méritez. Lundi on repart de plus belle 🙌`},
+        {emoji:"🔥",header:"WEEK-END — VOUS AVEZ BIEN TRAVAILLÉ",texte:`Quitterie et Emmanuelle sont fières de ces chiffres. ${pctObjectif}% cette semaine c'est du solide. Bon weekend ! 👑`},
       ]);
     }
   }

@@ -69,46 +69,57 @@ function similarite(a, b) {
 }
 
 function detecterPeriode(texte) {
-  const t = texte.toLowerCase().replace(/[^a-zàâäéèêëîïôùûü0-9\s']/g," ");
-  const mots = t.split(/\s+/).filter(Boolean);
+  // Nettoyage de base : minuscules, on garde les chiffres et lettres accentuées
+  const t    = texte.toLowerCase().replace(/[^a-zàâäéèêëîïôùûü0-9\s''-]/g," ");
+  // Version sans apostrophes du tout (gère "aujour'dhui", "aujoud'hui", etc.)
+  const tSans = t.replace(/['''`]/g,"");
+  const mots  = tSans.split(/\s+/).filter(Boolean);
   const proche = (mot,cibles) => cibles.some(c=>similarite(mot,c)<=2);
-  const mSemaine = ["semaine","semaien","smeaine","smaine","semiane","semmaine","semainne","semain","seamine","semaie","weekly","wekly"];
-  const mJournee = ["journee","journée","jounree","jounrée","jorunee","journé","journe","daily","dayli","daly"];
-  const mJour    = ["jour","jours","day","today"];
-  const mMois    = ["mois","mosi","mios","mis","month"];
-  const mFin     = ["fin","fiin","fni","end"];
-  const mAujourd = ["aujourd","aujrd","ajd","auj","aujo"];
 
-  if (/aujourd'?hui|ajd\b|aujrd\b/i.test(t)) return "la journée";
-  if (/\b(?:de\s+la|cette|la)\s+semaine\b/i.test(t)) return "la semaine";
-  if (/\bsemaine\b/i.test(t)) return "la semaine";
-  if (/\bweekly\b/i.test(t)) return "la semaine";
-  if (/\b(?:de\s+la|la)\s+journ[eé]e\b/i.test(t)) return "la journée";
-  if (/\bdaily\b/i.test(t)) return "la journée";
+  // ── AUJOURD'HUI — toutes les fautes d'orthographe ─────────
+  // Supprime toutes les apostrophes du texte et cherche les variantes
+  if (/\baujourdhui\b|\baujrdhui\b|\baujourdhui\b|\baujourdh?ui\b/i.test(tSans)) return "la journée";
+  if (/\bajd\b|\baujrd\b|\baujo\b|\btoday\b|\bdaily\b/i.test(tSans)) return "la journée";
+  // Fuzzy : n'importe quel mot proche de "aujourdhui" (sans apostrophe)
+  if (mots.some(m => m.length >= 4 && similarite(m,"aujourdhui") <= 3)) return "la journée";
+  // Fuzzy : variantes courtes ("auj", "aujo", "aujrd")
+  const mAujourd = ["aujourdhui","aujrdhui","aujrdhui","aujdhui","aujrd","ajd","auj","aujo","aujour","aujoud","aujohui","aujhui","aujoiurd"];
+  if (mots.some(m => proche(m, mAujourd))) return "la journée";
 
+  // ── SEMAINE ───────────────────────────────────────────────
+  if (/\b(?:de\s+la|cette|la|sur\s+la|cette)\s+semaine\b|\bsemaine\b|\bweekly\b|\bweek\b/i.test(t)) return "la semaine";
+  const mSemaine = ["semaine","semaien","smeaine","smaine","semiane","semmaine","semainne","semain","seamine","semaie","weekly","wekly","semain"];
+  if (mots.some(m => proche(m, mSemaine))) return "la semaine";
+
+  // ── JOURNÉE ───────────────────────────────────────────────
+  if (/\b(?:de\s+la|la)\s+journ[eé]e\b|\bjournn?[eé]e?\b/i.test(t)) return "la journée";
+  const mJournee = ["journee","journee","jounree","jorunee","journe","journé","daily","dayli","daly"];
+  if (mots.some(m => proche(m, mJournee))) return "la journée";
+  if (mots.some(m => proche(m, ["jour","jours","day","today","today"]))) return "la journée";
+
+  // ── FIN DE SEMAINE ────────────────────────────────────────
+  const mFin = ["fin","fiin","fni","end"];
   for (let i=0;i<mots.length-1;i++)
     if (proche(mots[i],mFin) && mots.slice(i+1).some(m=>proche(m,mSemaine))) return "la fin de semaine";
   if (/fin.{0,8}s[eé]m/i.test(t)) return "la fin de semaine";
 
-  const mS = t.match(/(\d+)\s*semaines?/);
+  // ── N PROCHAINS JOURS / SEMAINES ─────────────────────────
+  const mS = tSans.match(/(\d+)\s*semaines?/);
   if (mS) return `les ${mS[1]} prochaines semaines`;
-  const mJ = t.match(/(\d+)\s*(?:prochains?\s+)?jours?/);
+  const mJ = tSans.match(/(\d+)\s*(?:prochains?\s+)?jours?/);
   if (mJ && parseInt(mJ[1])>1) return `les ${mJ[1]} prochains jours`;
 
-  const mJusq = t.match(/(?:jusqu'?|jusq'?|jusqua|juska)\s*(?:au?|à|a)?\s+(.{2,20}?)(?:\s|$)/);
+  // ── JUSQU'AU / AVANT / D'ICI ─────────────────────────────
+  const mJusq = t.match(/(?:jusqu['']?|jusq['']?|jusqua|juska)\s*(?:au?|[àa])?\s+(.{2,20}?)(?:\s|$)/);
   if (mJusq) return `la période jusqu'au ${mJusq[1].trim()}`;
   const mAv = t.match(/(?:avant|avnat|avat)\s+(.{2,20}?)(?:\s|$)/);
   if (mAv) return `la période avant ${mAv[1].trim()}`;
-  const mDici = t.match(/(?:d'ici|dici)\s+(.{2,20}?)(?:\s|$)/);
+  const mDici = tSans.match(/(?:dici|jusqua)\s+(.{2,20}?)(?:\s|$)/);
   if (mDici) return `la période d'ici ${mDici[1].trim()}`;
 
-  for (const mot of mots) {
-    if (proche(mot,mAujourd)) return "la journée";
-    if (proche(mot,mJournee)) return "la journée";
-    if (proche(mot,mJour))    return "la journée";
-    if (proche(mot,mSemaine)) return "la semaine";
-    if (proche(mot,mMois))    return "le mois";
-  }
+  // ── MOIS ─────────────────────────────────────────────────
+  if (mots.some(m => proche(m,["mois","mosi","mios","mis","month"]))) return "le mois";
+
   return "la semaine";
 }
 

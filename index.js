@@ -270,7 +270,7 @@ function detecterCloseQ(texte) { return /close\s+du\s+[qQ🍑]/i.test(texte)||/[
 
 const PRESSION = {
   retard: [
-    {header:"OÙ EST-CE QU'ON EN EST LÀ 👀🔥",texte:`On est à 75% de la journée et l'objectif est pas encore à moitié. ${pick(MESSAGES_PHILIPPE_PRESSION)} Allez les gars !`},
+    {header:"OÙ EST-CE QU'ON EN EST LÀ 👀🔥",texte:()=>`On est à 75% de la journée et l'objectif est pas encore à moitié. ${pick(MESSAGES_PHILIPPE_PRESSION)} Allez les gars !`},
     {header:"IL EST TARD ET ON A DU BOULOT 😤🔥",texte:"La journée avance et l'objectif attend. Vous êtes des cracks, je veux voir la frappe maintenant."},
     {header:"C'EST L'HEURE DE METTRE LE TURBO 🚀",texte:"On a encore du temps mais il faut accélérer. Vous êtes des machines, montrez-le. Allez !"},
   ],
@@ -282,7 +282,7 @@ const PRESSION = {
   urgence: [
     {header:"30 MINUTES — TOUT LE MONDE SUR LE PONT 🚨🔥",texte:"30 minutes. C'est court mais vous êtes des machines. On close tout ce qui bouge. ALLEZ !"},
     {header:"C'EST LA DERNIÈRE LIGNE DROITE 😤💥",texte:"Plus que 30 minutes. Chaque deal compte. Vous êtes des GOAT, prouvez-le !"},
-    {header:"30 MIN — C'EST MAINTENANT QU'ON ENVOIE LA FRAPPE 🔥",texte:`Dernières 30 minutes. ${pick(MESSAGES_PHILIPPE_PRESSION)} Allez les tigres 🐯`},
+    {header:"30 MIN — C'EST MAINTENANT QU'ON ENVOIE LA FRAPPE 🔥",texte:()=>`Dernières 30 minutes. ${pick(MESSAGES_PHILIPPE_PRESSION)} Allez les tigres 🐯`},
   ],
 };
 
@@ -559,7 +559,7 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
     const msgQ = pick(MESSAGES_CLOSE_Q);
     blocks.push({type:"section",text:{type:"mrkdwn",text:`🍑  *${msgQ.header}*\n_${msgQ.texte}_`}});
   } else if (pression&&!depasse) {
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${pression.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${typeof pression.texte==="function"?pression.texte():pression.texte}_`}});
   }
 
   blocks.push({type:"divider"});
@@ -590,6 +590,7 @@ async function envoyerStatut(channel, client) {
   const mrrBuffer      = state.buffer.reduce((s,d)=>s+d.montant,0);
   const ancienObjectif = state.objectif;
 
+  const bufferSnapshot = [...state.buffer];
   if (state.buffer.length>0) {
     const now=new Date(), dateStr=now.toISOString().split("T")[0], weekStr=getWeekKey(now);
     state.buffer.forEach(d=>{
@@ -610,7 +611,7 @@ async function envoyerStatut(channel, client) {
   const milestone   = verifierMilestone(state.objectifDepart, state.objectif);
 
   const calcul = mrrBuffer>0
-    ? `*${ancienObjectif.toLocaleString("fr-FR")}€*  ${state.buffer.length>0?state.buffer.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR")}€`).join("  "):`−  ${mrrBuffer.toLocaleString("fr-FR")}€`}  =  *${Math.max(0,state.objectif).toLocaleString("fr-FR")}€*  /  ${state.objectifDepart.toLocaleString("fr-FR")}€  _(${state.modeLabel})_`
+    ? `*${ancienObjectif.toLocaleString("fr-FR")}€*  ${bufferSnapshot.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR")}€`).join("  ")}  =  *${Math.max(0,state.objectif).toLocaleString("fr-FR")}€*  /  ${state.objectifDepart.toLocaleString("fr-FR")}€  _(${state.modeLabel})_`
     : `*${Math.max(0,state.objectif).toLocaleString("fr-FR")}€*  /  ${state.objectifDepart.toLocaleString("fr-FR")}€  _(${state.modeLabel})_`;
 
   const blocks = [];
@@ -622,7 +623,7 @@ async function envoyerStatut(channel, client) {
   if (milestone) {
     blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*\n_${milestone.texte}_`}});
   } else if (pression) {
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${pression.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${typeof pression.texte==="function"?pression.texte():pression.texte}_`}});
   }
 
   blocks.push({type:"divider"});
@@ -810,7 +811,7 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
         if (milestone) {
           blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*\n_${milestone.texte}_`}});
         } else if (pression) {
-          blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${pression.texte}_`}});
+          blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${typeof pression.texte==="function"?pression.texte():pression.texte}_`}});
         }
         blocks.push({type:"divider"});
         blocks.push({type:"section",text:{type:"mrkdwn",text:`✏️  _${pick(MESSAGES_MODIF)}_`}});
@@ -934,7 +935,7 @@ app.event("app_mention", async ({event,say}) => {
     const montant=extraireObjectif(mRem[1].trim());
     if (!montant||isNaN(montant)){await say(`❌ Montant non reconnu.`);return;}
     const ancien=state.objectif;
-    state.objectif+=montant;state.objectifDepart+=montant;
+    state.objectif+=montant;
     sauvegarderState(state);
     await say(`↩️ *${montant.toLocaleString("fr-FR")}€* retirés — objectif ajusté : *${state.objectif.toLocaleString("fr-FR")}€* _(était ${ancien.toLocaleString("fr-FR")}€)_`);
     return;

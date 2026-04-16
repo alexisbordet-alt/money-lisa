@@ -10,7 +10,7 @@ const app = new App({
   clientOptions: { retryConfig: { retries: 10 } },
 });
 
-const STATE_FILE  = "./state.json";
+const STATE_FILE  = fs.existsSync("/data") ? "/data/state.json" : "./state.json";
 const CANAL_SORTIE = "test-koh-mando-58";
 
 // ============================================================

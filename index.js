@@ -1,3 +1,4 @@
+require("dotenv").config();
 const { App } = require("@slack/bolt");
 const fs = require("fs");
 
@@ -495,6 +496,34 @@ function getMilestoneAdaptatif(pctObjectif) {
 
   // Fallback
   return null;
+}
+
+// ============================================================
+// VÉRIFICATION MILESTONES
+// ============================================================
+function verifierMilestone(objectifDepart, objectif) {
+  if (!objectifDepart || objectifDepart <= 0) return null;
+  const pct = Math.round((1 - Math.max(0, objectif) / objectifDepart) * 100);
+
+  let triggered = null;
+  for (const threshold of [25, 50, 75, 100]) {
+    if (pct >= threshold && !state.milestonesVus.includes(threshold)) {
+      state.milestonesVus.push(threshold);
+      const m = MILESTONES[String(threshold)];
+      triggered = {
+        emoji: m.emoji,
+        header: pick(m.header),
+        texte: pick(m.texte),
+      };
+    }
+  }
+
+  if (triggered) {
+    sauvegarderState(state);
+    return triggered;
+  }
+
+  return getMilestoneAdaptatif(pct);
 }
 
 // ============================================================

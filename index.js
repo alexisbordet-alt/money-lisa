@@ -115,6 +115,7 @@ function detecterPeriode(texte) {
 // EXTRACTION MRR
 // ============================================================
 function extraireTousMRR(texte) {
+  // ── 1. Supprime les FF ────────────────────────────────────
   const sanFF = texte
     .replace(/\bfrais\s*d[eo]?\s*f[oa]rm?[ae]ti?[oa]n?\b[^\n,\/]*/gi,"")
     .replace(/\bfrai\s*form[^\n,\/]*/gi,"")
@@ -125,8 +126,11 @@ function extraireTousMRR(texte) {
     .replace(/\bF\.F\b\s*:?\s*\d+[\d\s]*€?/gi,"")
     .replace(/\d+[\d\s]*€?\s*\bF\.F\b/gi,"");
 
-  const sanFaux = sanFF.replace(/\b\d+\s*(?:pax|pers(?:onnes?)?|places?|ans?|mois|jours?|semaines?|%|h\b)/gi,"IGNORE");
+  // ── 2. Supprime les faux positifs ─────────────────────────
+  const sanFaux = sanFF
+    .replace(/\b\d+\s*(?:pax|pers(?:onnes?)?|places?|ans?|mois|jours?|semaines?|%|h\b)/gi,"IGNORE");
 
+  // ── 3. Cherche MRR explicite ─────────────────────────────
   const mrrReg = /(\d[\d\s]*)\s*€?\s*(?:de\s+)?(?:m\.?r\.?r?\.?|mrr|mmr|rmr)\s*(?:annuel(?:le)?)?|(?:m\.?r\.?r?\.?|mrr|mmr|rmr)\s*(?:annuel(?:le)?\s*)?[:\-]?\s*(\d[\d\s]*)/gi;
 
   const resultats = [];
@@ -138,21 +142,44 @@ function extraireTousMRR(texte) {
     if (!resultats.some(r=>Math.abs(r.index-match.index)<20))
       resultats.push({montant,index:match.index});
   }
-  if (resultats.length>0) return resultats.map(r=>r.montant);
 
-  const euros = [...sanFaux.matchAll(/\b(\d[\d\s]*)\s*€/g)].filter(m=>!m.input.slice(m.index-10,m.index+20).includes("IGNORE"));
+  // ── 4. Cherche UPSELL explicite ──────────────────────────
+  // Reconnaît : upsell, up-sell, upgrade, montée en gamme,
+  // extension, ajout module, augmentation contrat, extension contrat
+  const upsellReg = /(?:upsell|up[\s\-]?sell|upgr[ae]de|mont[eé]e?\s*en\s*gamme|extension|ajout\s*(?:module|option|utilisateur|user|licence|licences?)|augmentation\s*(?:contrat|abonnement|licence)|cross[\s\-]?sell|addon|add[\s\-]?on)\s*[:\-]?\s*[+]?\s*(\d[\d\s]*)\s*€?|[+]?\s*(\d[\d\s]*)\s*€?\s*(?:d[e']?\s*)?(?:upsell|up[\s\-]?sell|upgr[ae]de|extension|ajout)/gi;
+
+  while ((match = upsellReg.exec(sanFaux)) !== null) {
+    const raw = (match[1]||match[2]||"").replace(/\s/g,"");
+    const montant = parseInt(raw,10);
+    if (isNaN(montant)||montant<=0||montant>=100000) continue;
+    if (!resultats.some(r=>Math.abs(r.index-match.index)<20))
+      resultats.push({montant,index:match.index,isUpsell:true});
+  }
+
+  if (resultats.length>0) {
+    const montants = resultats.map(r=>r.montant);
+    console.log(`✅ MRR/Upsell : ${montants.join(" + ")} = ${montants.reduce((s,m)=>s+m,0)}€`);
+    return montants;
+  }
+
+  // ── 5. 1 seul montant en € = MRR ─────────────────────────
+  const euros = [...sanFaux.matchAll(/\b(\d[\d\s]*)\s*€/g)]
+    .filter(m=>!m.input.slice(m.index-10,m.index+20).includes("IGNORE"));
   if (euros.length===1) {
     const montant = parseInt(euros[0][1].replace(/\s/g,""),10);
     if (!isNaN(montant)&&montant>0&&montant<100000) return [montant];
   }
 
-  if (/^\s*(?:close|deal|won|vendu|sign[eé])\b/i.test(sanFaux)) {
-    const nums = [...sanFaux.matchAll(/\b(\d{2,4})\b/g)].filter(m=>!m.input.slice(m.index-5,m.index+15).includes("IGNORE"));
+  // ── 6. Message "Close/Upsell [nom] [montant]" sans € ─────
+  if (/^\s*(?:close|deal|won|vendu|sign[eé]|upsell|upgrade|extension)\b/i.test(sanFaux)) {
+    const nums = [...sanFaux.matchAll(/\b(\d{2,4})\b/g)]
+      .filter(m=>!m.input.slice(m.index-5,m.index+15).includes("IGNORE"));
     if (nums.length===1) {
       const montant = parseInt(nums[0][1],10);
       if (!isNaN(montant)&&montant>10&&montant<10000) return [montant];
     }
   }
+
   return [];
 }
 
@@ -781,6 +808,11 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
   state.buffer.push({user:userName,userId,montant:mrr,leads:extraireTousMRR(texte),ts,closeQ});
   sauvegarderState(state);
   console.log(`📥 Buffer : ${state.buffer.length}/3 — ${userName} : ${mrr}€`);
+
+  // ✅ Réaction tick vert sur le message comptabilisé
+  try {
+    await client.reactions.add({ channel, timestamp: ts, name: "white_check_mark" });
+  } catch(e) { console.log("Réaction impossible :", e.message); }
 
   if (state.buffer.length>=3) {
     const deals=state.buffer.splice(0,3);

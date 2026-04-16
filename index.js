@@ -23,7 +23,7 @@ function chargerState() {
   } catch (e) {}
   return {
     modeLabel: "la semaine", objectifDepart: 8073, objectif: 8073,
-    buffer: [], milestonesVus: [], tsDejaComptes: [], montantsComptes: {}, salesStats: {},
+    buffer: [], milestonesVus: [], tsDejaComptes: [], montantsComptes: {}, salesStats: {}, nbCompteurs: 0,
   };
 }
 function sauvegarderState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); }
@@ -537,6 +537,20 @@ function verifierMilestone(objectifDepart, objectif) {
   return getMilestoneAdaptatif(pct);
 }
 
+function getMilestoneForce(objectifDepart, objectif) {
+  const m = verifierMilestone(objectifDepart, objectif);
+  if (m) return m;
+  const pct = objectifDepart > 0 ? Math.round((1 - Math.max(0, objectif) / objectifDepart) * 100) : 0;
+  return getMilestoneAdaptatif(pct) || pick([
+    {emoji:"🔥",header:"ON CONTINUE — DEAL APRÈS DEAL",texte:`${pick(MESSAGES_PHILIPPE)} Chaque close compte, on lâche rien. 💪`},
+    {emoji:"⚡",header:"LE MOMENTUM EST LÀ — ON EN PROFITE",texte:`${pick(MESSAGES_CEO)} Gardez la cadence les gars !`},
+    {emoji:"💪",header:"C'EST COMME ÇA QU'ON CONSTRUIT UN OBJECTIF",texte:"Deal après deal, close après close. C'est le game et vous êtes dans le game 🎯"},
+    {emoji:"🚀",header:"VOUS ENVOYEZ DE LA FRAPPE — CONTINUEZ",texte:`${pick(MESSAGES_CEO)} On est sur la bonne trajectoire 📈`},
+    {emoji:"😤",header:"LES MONSTRES SONT EN TRAIN DE CLOSER",texte:`${pick(MESSAGES_PHILIPPE)} C'est exactement ce qu'on veut voir. 🐐`},
+    {emoji:"🏆",header:"DEAL AFTER DEAL — C'EST LE STYLE MONEY LISA",texte:"On accumule, on cumule, on performe. L'objectif va tomber si vous continuez comme ça 🎯"},
+  ]);
+}
+
 // ============================================================
 // CONSTRUCTION DU CALCUL
 // ============================================================
@@ -864,8 +878,11 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
     state.buffer=[];
     deals.forEach(d=>{state.tsDejaComptes.push(d.ts);state.montantsComptes[d.ts]=d.montant;});
     if (state.tsDejaComptes.length>200) state.tsDejaComptes=state.tsDejaComptes.slice(-200);
+    state.nbCompteurs = (state.nbCompteurs || 0) + 1;
     sauvegarderState(state);
-    const milestone=verifierMilestone(state.objectifDepart,state.objectif);
+    const milestone = (state.nbCompteurs % 3 === 0)
+      ? getMilestoneForce(state.objectifDepart, state.objectif)
+      : verifierMilestone(state.objectifDepart, state.objectif);
     const blocks=construireMessage(deals,ancienObjectif,state.objectif,state.objectifDepart,milestone,hasCloseQ);
     await client.chat.postMessage({channel,text:`🚨 COMPTEUR`,blocks});
   }
@@ -924,7 +941,7 @@ app.event("app_mention", async ({event,say}) => {
     if (!nouvel||isNaN(nouvel)){await say(`❌ Montant non reconnu. Ex : \`@Money Lisa objectif 9k pour la semaine\``);return;}
     const periode=detecterPeriode(reste);
     state.objectifDepart=nouvel;state.objectif=nouvel;state.modeLabel=periode;
-    state.buffer=[];state.milestonesVus=[];state.tsDejaComptes=[];state.montantsComptes={};
+    state.buffer=[];state.milestonesVus=[];state.tsDejaComptes=[];state.montantsComptes={};state.nbCompteurs=0;
     sauvegarderState(state);
     await say(`🎯 L'objectif pour *${periode}* est fixé à *${nouvel.toLocaleString("fr-FR")}€*`);
     return;

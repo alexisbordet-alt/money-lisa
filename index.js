@@ -416,7 +416,7 @@ function getMilestoneAdaptatif(pctObjectif) {
     if (jour === 4) {
       if (pctObjectif < 40) return pick([
         {emoji:"🚨",header:"JEUDI ET ON EST À 40% — L'AFTERWORK AU 7 EST EN DANGER 🍺",texte:"On est jeudi et à moins de 40%. Le 7 ce soir ça va être compliqué si on n'accélère pas. Tout le monde sur le pont, MAINTENANT 😤"},
-        {emoji:"💥",header:"JEUDI — DERNIER VRAI SPRINT DE LA SEMAINE",texte:"C'est jeudi, avant-dernier jour. L'objectif est loin et le temps presse. ${pick(MESSAGES_PHILIPPE_PRESSION)} Allez les gars !"},
+        {emoji:"💥",header:"JEUDI — DERNIER VRAI SPRINT DE LA SEMAINE",texte:`C'est jeudi, avant-dernier jour. L'objectif est loin et le temps presse. ${pick(MESSAGES_PHILIPPE_PRESSION)} Allez les gars !`},
       ]);
       if (pctObjectif < 70) return pick([
         {emoji:"🔥",header:"JEUDI — ON Y EST PRESQUE, FINISSONS LE BOULOT",texte:"On est jeudi et on approche. L'afterwork au 7 se mérite avec ces derniers closes. Qui balance le prochain deal ? 🍺"},

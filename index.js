@@ -1263,41 +1263,59 @@ app.event("app_mention", async ({event,say}) => {
   const texte=event.text, tl=texte.toLowerCase();
   console.log("🔔 Mention :",texte);
 
-  if (/top\s*sal[e|s]?|top\s*vent|meilleur|classement|ranking/i.test(tl)) {
+  // ── TOP SALES ────────────────────────────────────────────────
+  if (/top\s*sal[e|s]?|top\s*vent|meilleur|classement|ranking|podium|leaderboard|scoreboard/i.test(tl)) {
     await say(formaterTopSales(calculerTopSales(detecterPeriodeTopSales(tl),detecterModeTopSales(tl)),detecterPeriodeTopSales(tl),detecterModeTopSales(tl)));
     return;
   }
 
-  if (/switch|change|changer|passer|basculer|switcher|swithc|chnage|chagne/i.test(tl)) {
+  // ── SWITCH PÉRIODE ──────────────────────────────────────────
+  if (/\b(?:switch|swicth|swich|swithc|switcher|change|changer|chagne|chnage|modif(?:ie[rz]?)?|modifier|passer?|basculer?|mettre?\s*(?:sur|en|à)|mode|période|periode|period)\b/i.test(tl)) {
     state.modeLabel=detecterPeriode(texte);
     sauvegarderState(state);
     await say(`🔄 Période changée : *${state.modeLabel}*\nL'objectif reste à *${state.objectif.toLocaleString("fr-FR")}€* et le buffer est conservé (${state.buffer.length}/3).`);
     return;
   }
 
-  // ── COMMANDE AVANCÉE : "avancée 400 sur 20000" ───────────────
-  // Conserve l'avancée quand on remet un objectif
-  const mAvancee = tl.match(/(?:avanc[eé]e?|progression|progress|deja|déjà)\s*(?:de\s+)?(\d[\d\s,\.]*k?)\s*(?:sur|\/|de)\s*(\d[\d\s,\.]*k?)/i);
-  if (mAvancee) {
-    const avance = extraireObjectif(mAvancee[1].trim());
-    const total  = extraireObjectif(mAvancee[2].trim());
+  // ── AVANCÉE X SUR Y — fixe objectif Y avec X déjà fait ──────
+  // "avancée 400 sur 20000" / "progression de 400 sur 20k" / "déjà 400 sur 20000"
+  const RE_AVANCEE_KWORD = /\b(?:avanc[eé][ée]?s?|avancee|avancem[e]?nt|avanc[e]|progress(?:ion)?|progres|progr[eè]s|d[eé]j[àa](?:\s*fait)?|fait[e]?s?|on\s*(?:a|est\s*[àa])|j['']?ai\s*fait)\b/i;
+  const mAvanceeSur = tl.match(new RegExp(RE_AVANCEE_KWORD.source + /\s*(?:de\s+)?(\d[\d\s,\.]*k?)\s*(?:sur|\/|de|sur\s*un\s*(?:objectif|obj|total)\s*(?:de)?)\s*(\d[\d\s,\.]*k?)/.source, "i"));
+  if (mAvanceeSur) {
+    const avance = extraireObjectif(mAvanceeSur[1].trim());
+    const total  = extraireObjectif(mAvanceeSur[2].trim());
     if (!avance||!total||isNaN(avance)||isNaN(total)) { await say(`❌ Format non reconnu. Ex : \`@Money Lisa avancée 400 sur 20000\``); return; }
     const reste = total - avance;
-    state.objectifDepart = total;
-    state.objectif       = reste;
-    state.milestonesVus  = [];
-    // Recalculer les milestones déjà franchis pour ne pas les re-déclencher
-    const pctDeja = Math.round((avance / total) * 100);
-    for (const t of [25,50,75,100]) { if (pctDeja >= t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
+    state.objectifDepart = total; state.objectif = reste; state.milestonesVus = [];
+    const pctDeja = Math.round((avance/total)*100);
+    for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
     sauvegarderState(state);
     await say(`🎯 Objectif *${total.toLocaleString("fr-FR")}€* — avancée de *${avance.toLocaleString("fr-FR")}€* conservée → il reste *${reste.toLocaleString("fr-FR")}€* _(${state.modeLabel})_`);
     return;
   }
 
-  const mObj=texte.match(/(?:objectif|obj|objctif|obejctif|objetcif|ojbectif|objecti|obectif)\s*(.*)/i);
+  // ── AVANCÉE X seul — applique X sur l'objectif courant ───────
+  // "avancée 400" / "avancement 400" / "j'ai fait 400" / "on est à 400" / "on a fait 400"
+  const mAvanceeSeul = tl.match(new RegExp(RE_AVANCEE_KWORD.source + /\s*(?:de\s+|[àa]\s+)?(\d[\d\s,\.]*k?)/.source, "i"));
+  if (mAvanceeSeul && !tl.match(/(?:sur|\/)\s*\d/)) {
+    const avance = extraireObjectif(mAvanceeSeul[1].trim());
+    if (!avance||isNaN(avance)||!state.objectifDepart) { await say(`❌ Montant non reconnu ou pas d'objectif fixé.`); return; }
+    const total = state.objectifDepart;
+    const reste = total - avance;
+    state.objectif = reste; state.milestonesVus = [];
+    const pctDeja = Math.round((avance/total)*100);
+    for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
+    sauvegarderState(state);
+    await say(`📍 Avancée de *${avance.toLocaleString("fr-FR")}€* enregistrée sur l'objectif *${total.toLocaleString("fr-FR")}€* → il reste *${Math.max(0,reste).toLocaleString("fr-FR")}€* _(${state.modeLabel})_`);
+    return;
+  }
+
+  // ── OBJECTIF ────────────────────────────────────────────────
+  const RE_OBJ = /\b(?:objectif[s]?|obj[e]?[c]?[t]?[i]?[f]?[s]?|objctif|obejctif|objetcif|ojbectif|objecti|obectif|objcetif|objectifr|goal|cible|target|vise[er]?|visee)\b/i;
+  const mObj = texte.match(new RegExp(RE_OBJ.source + /\s*(.*)/.source, "i"));
   if (mObj) {
     const reste=mObj[1].trim();
-    // Détecte "obj X sur Y" ou "obj de X sur Y" → avancée X sur total Y
+    // "obj X sur Y" → avancée X, total Y
     const mSur = reste.match(/(?:de\s+)?(\d[\d\s,\.]*k?)\s*(?:sur|\/)\s*(\d[\d\s,\.]*k?)/i);
     if (mSur) {
       const avance = extraireObjectif(mSur[1].trim());
@@ -1305,7 +1323,7 @@ app.event("app_mention", async ({event,say}) => {
       if (avance && total && !isNaN(avance) && !isNaN(total) && total > avance) {
         const restant = total - avance;
         const periode = detecterPeriode(reste);
-        state.objectifDepart = total; state.objectif = restant; state.modeLabel = periode;
+        state.objectifDepart=total; state.objectif=restant; state.modeLabel=periode;
         state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
         state.objectifNbJours=null; state.objectifDateDebut=null;
         const pctDeja = Math.round((avance/total)*100);
@@ -1318,40 +1336,37 @@ app.event("app_mention", async ({event,say}) => {
     const nouvel=extraireObjectif(reste);
     if (!nouvel||isNaN(nouvel)){await say(`❌ Montant non reconnu. Ex : \`@Money Lisa objectif 9k pour la semaine\``);return;}
     const periode=detecterPeriode(reste);
-    // Stocker le countdown si N prochains jours ou mois
     const matchJours = periode.match(/^les (\d+) prochains jours$/);
     const matchMois  = periode === "le mois";
     state.objectifDepart=nouvel; state.objectif=nouvel; state.modeLabel=periode;
     state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
     if (matchJours) {
-      state.objectifNbJours   = parseInt(matchJours[1]);
-      state.objectifDateDebut = getDateStr();
+      state.objectifNbJours=parseInt(matchJours[1]); state.objectifDateDebut=getDateStr();
     } else if (matchMois) {
-      const now = new Date();
-      state.objectifNbJours   = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate() - now.getDate() + 1;
-      state.objectifDateDebut = getDateStr();
-    } else {
-      state.objectifNbJours   = null;
-      state.objectifDateDebut = null;
-    }
+      const now=new Date();
+      state.objectifNbJours=new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate()+1;
+      state.objectifDateDebut=getDateStr();
+    } else { state.objectifNbJours=null; state.objectifDateDebut=null; }
     sauvegarderState(state);
-    const explication = matchJours ? ` _(jour 1/${state.objectifNbJours}, se met à jour automatiquement)_` : matchMois ? ` _(${state.objectifNbJours} jours restants ce mois)_` : "";
+    const explication = matchJours?` _(jour 1/${state.objectifNbJours}, se met à jour automatiquement)_`:matchMois?` _(${state.objectifNbJours} jours restants ce mois)_`:"";
     await say(`🎯 L'objectif pour *${periode}* est fixé à *${nouvel.toLocaleString("fr-FR")}€*${explication}`);
     return;
   }
 
-  const mAdd=tl.match(/(?:add|ajoute[rz]?|rajoute[rz]?|ajout|rajout|mets?|mettre)\s*[àaáâäde@\s]?\s*([\d,.\s]+k?)/i);
+  // ── ADD ──────────────────────────────────────────────────────
+  const mAdd=tl.match(/\b(?:add|ajout(?:e[rz]?)?|rajout(?:e[rz]?)?|ajoute|rajoute|augment(?:e[rz]?)?|monte[rz]?|hausse|boost(?:e[rz]?)?|incr[eé]ment(?:e[rz]?)?|mets?|mettre|mis)\b\s*[àaáâäde@\s]?\s*([\d,.\s]+k?)/i);
   if (mAdd) {
     const ajout=extraireObjectif(mAdd[1].trim());
     if (!ajout||isNaN(ajout)){await say(`❌ Montant non reconnu.`);return;}
     const ancien=state.objectifDepart;
-    state.objectifDepart+=ajout;state.objectif+=ajout;
+    state.objectifDepart+=ajout; state.objectif+=ajout;
     sauvegarderState(state);
     await say(`➕ *${ajout.toLocaleString("fr-FR")}€* ajoutés — nouvel objectif : *${state.objectifDepart.toLocaleString("fr-FR")}€* _(était ${ancien.toLocaleString("fr-FR")}€)_`);
     return;
   }
 
-  const mRem=tl.match(/(?:remove|rmv|supprime[rz]?|retire[rz]?|efface[rz]?|annule[rz]?|vire[rz]?|déduis|deduis|soustrai[st]|soustraire)\s*[àaáâäde@\s]?\s*([\d,.\s]+k?)/i);
+  // ── REMOVE ───────────────────────────────────────────────────
+  const mRem=tl.match(/\b(?:remove|rmv|supprim(?:e[rz]?)?|retir(?:e[rz]?)?|effa(?:ce[rz]?)?|annul(?:e[rz]?)?|vir(?:e[rz]?)?|d[eé]duis?|deduis?|soustrai[tsr]?|soustraire|enlev(?:e[rz]?)?|enlève|baiss(?:e[rz]?)?|diminu(?:e[rz]?)?|[eé]crase[rz]?)\b\s*[àaáâäde@\s]?\s*([\d,.\s]+k?)/i);
   if (mRem) {
     const montant=extraireObjectif(mRem[1].trim());
     if (!montant||isNaN(montant)){await say(`❌ Montant non reconnu.`);return;}
@@ -1362,13 +1377,15 @@ app.event("app_mention", async ({event,say}) => {
     return;
   }
 
-  if (/statut|status|reste|stat|bilan|avancement|ou en est|où en est/i.test(tl)) {
+  // ── STATUT ───────────────────────────────────────────────────
+  if (/\b(?:statut|status|stat[s]?|reste|restant|bilan|avancement|avancem[e]?nt|ou\s*(?:en\s*)?est|où\s*(?:en\s*)?est|où\s*on\s*en|combien|progress|résumé|resume|compteur|recap|récap|show|voir|vois|update|upd8)\b/i.test(tl)) {
     await envoyerStatut(event.channel, app.client);
     return;
   }
 
-  if (/reset|reinit|vider|raz/i.test(tl)) {
-    state.buffer=[];sauvegarderState(state);
+  // ── RESET ────────────────────────────────────────────────────
+  if (/\b(?:reset|reinit(?:ialise[rz]?)?|vider?|raz|repart(?:ir)?|vide[rz]?|nettoie[rz]?|nettoy(?:er)?|clear)\b/i.test(tl)) {
+    state.buffer=[]; sauvegarderState(state);
     await say(`🔄 Buffer remis à zéro (0/3).`);
     return;
   }

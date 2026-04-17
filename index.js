@@ -1297,6 +1297,24 @@ app.event("app_mention", async ({event,say}) => {
   const mObj=texte.match(/(?:objectif|obj|objctif|obejctif|objetcif|ojbectif|objecti|obectif)\s*(.*)/i);
   if (mObj) {
     const reste=mObj[1].trim();
+    // Détecte "obj X sur Y" ou "obj de X sur Y" → avancée X sur total Y
+    const mSur = reste.match(/(?:de\s+)?(\d[\d\s,\.]*k?)\s*(?:sur|\/)\s*(\d[\d\s,\.]*k?)/i);
+    if (mSur) {
+      const avance = extraireObjectif(mSur[1].trim());
+      const total  = extraireObjectif(mSur[2].trim());
+      if (avance && total && !isNaN(avance) && !isNaN(total) && total > avance) {
+        const restant = total - avance;
+        const periode = detecterPeriode(reste);
+        state.objectifDepart = total; state.objectif = restant; state.modeLabel = periode;
+        state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
+        state.objectifNbJours=null; state.objectifDateDebut=null;
+        const pctDeja = Math.round((avance/total)*100);
+        for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
+        sauvegarderState(state);
+        await say(`🎯 Objectif *${total.toLocaleString("fr-FR")}€* _(${periode})_ — avancée de *${avance.toLocaleString("fr-FR")}€* prise en compte → il reste *${restant.toLocaleString("fr-FR")}€*`);
+        return;
+      }
+    }
     const nouvel=extraireObjectif(reste);
     if (!nouvel||isNaN(nouvel)){await say(`❌ Montant non reconnu. Ex : \`@Money Lisa objectif 9k pour la semaine\``);return;}
     const periode=detecterPeriode(reste);

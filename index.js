@@ -608,6 +608,29 @@ function getMilestoneAdaptatif(pctObjectif) {
         ]);
       }
       if (h >= 12) {
+
+        // ── JEUDI FIN DE JOURNÉE (17h+) — dernières heures avant vendredi ──
+        if (h >= 17) {
+          if (pctObjectif < 50) return pick([
+            {emoji:"🚨",header:"DERNIER PUSH DU JEUDI — DEMAIN C'EST LE DERNIER JOUR",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} On finit cette journée fort sinon demain va être compliqué. ALLEZ 😤`},
+            {emoji:"💥",header:"ON FERME CETTE JOURNÉE EN FORCE",texte:`Encore à moins de 50%. Demain c'est vendredi, le dernier jour. Ce soir on donne tout pour se mettre en position. 🔥`},
+            {emoji:"🚨",header:"LE JEUDI SE FINIT — ON DOIT AVANCER",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} Chaque close ce soir c'est moins de pression demain. On envoie la frappe avant de partir 💪`},
+            {emoji:"⚡",header:"LES DERNIÈRES HEURES DU JEUDI COMPTENT",texte:"On a encore une bonne heure. Closes en série maintenant et demain on arrive avec du momentum. ALLEZ !"},
+          ]);
+          if (pctObjectif < 75) return pick([
+            {emoji:"🔥",header:"ON FINIT LE JEUDI EN BEAUTÉ POUR DEMAIN",texte:`Chaque close ce soir = moins de travail demain. ${pick(MESSAGES_CEO)} Qui sort le dernier deal du jeudi ? 🎯`},
+            {emoji:"⚡",header:"LE DERNIER PUSH DU JEUDI",texte:"On est dans la course. Un dernier close ce soir et on arrive vendredi avec du carburant. Allez les cracks 💪"},
+            {emoji:"💪",header:"ON POSE LES BASES POUR DEMAIN",texte:`${pick(MESSAGES_PHILIPPE)} On finit bien ce jeudi et vendredi sera tranquille. Qui ferme le prochain deal ? 🍺`},
+            {emoji:"🎯",header:"UN DEAL DE PLUS AVANT DE PARTIR",texte:"On est bien positionnés. Un ou deux closes de plus ce soir et demain on arrive en avance sur l'objectif. Allez !"},
+          ]);
+          if (pctObjectif >= 75) return pick([
+            {emoji:"🏆",header:"JEUDI PARFAIT — DEMAIN ON BOUCLE",texte:`75%+ en fin de jeudi c'est masterclass. Le 7 demain soir vous l'avez déjà mérité. ${pick(MESSAGES_CEO)} 🍺🔥`},
+            {emoji:"💪",header:"VOUS AVEZ FAIT L'ESSENTIEL — DEMAIN ON FINALISE",texte:`${pick(MESSAGES_PHILIPPE)} 75%+ jeudi soir. Demain quelques closes et cette semaine est parfaite 🐐`},
+            {emoji:"🚀",header:"L'OBJECTIF VA TOMBER DEMAIN MATIN",texte:"75%+ fin de jeudi c'est une semaine en avance. Demain matin on arrive et ça tombe vite. Des GOAT 🐐"},
+          ]);
+        }
+
+        // ── JEUDI DÉBUT D'APRÈM (12h-17h) ──
         if (pctObjectif < 50) return pick([
           {emoji:"🚨",header:"URGENCE MAXIMALE — DERNIER SPRINT 🚨",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} Encore à moins de 50%. On a l'aprèm et vendredi. C'est maintenant que les vrais closent. Allez 😤`},
           {emoji:"💥",header:"LES DERNIÈRES HEURES COMPTENT DOUBLE",texte:"On a encore du temps mais il faut tout donner dès maintenant. Closes en série, pas le temps d'attendre 🔥"},
@@ -652,6 +675,40 @@ function getMilestoneAdaptatif(pctObjectif) {
         ]);
       }
       if (h >= 12) {
+
+        // ── VENDREDI DERNIER SPRINT (16h+) — 2 dernières heures de closing ──
+        // À ce stade, l'objectif hebdo est hors de portée si on est < 85%.
+        // Les messages doivent être RÉALISTES — on ne dit plus "quelques closes et c'est plié"
+        if (h >= 16) {
+          if (pctObjectif < 50) return pick([
+            {emoji:"🚨",header:"DERNIER SPRINT — ON FINIT FORT QUAND MÊME",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} L'objectif hebdo sera pas atteint cette semaine. Mais on peut encore faire une belle fin. Qui close maintenant ? 💪`},
+            {emoji:"💥",header:"LA SEMAINE FINIT ICI — ON MAXIMISE CE QUI RESTE",texte:`On est à ${pctObjectif}%, l'objectif de la semaine c'est plié. Mais chaque close dans les 2 prochaines heures c'est du concret pour le next. ALLEZ 😤`},
+            {emoji:"🚨",header:"ON TIRE LES LEÇONS — ET ON FINIT LE BOULOT",texte:`La semaine a été difficile. On analyse lundi. Ce soir on ferme tout ce qu'on peut fermer et on repart la tête haute 🔥`},
+            {emoji:"⚡",header:"VENDREDI FIN DE JOURNÉE — ON LAISSE TOUT SUR LE TERRAIN",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} L'objectif est loin mais ça ne change rien à l'engagement. On donne tout jusqu'à la dernière minute. Allez ! 💪`},
+          ]);
+          if (pctObjectif < 75) return pick([
+            {emoji:"🔥",header:"BELLE SEMAINE MALGRÉ TOUT — ON FINIT PROPREMENT",texte:`${pctObjectif}% c'est une semaine solide. L'objectif sera pas plié ce soir, mais chaque close maintenant c'est du bonus pour lundi. Allez !`},
+            {emoji:"⚡",header:"DERNIER PUSH — CHAQUE CLOSE COMPTE POUR LA SUITE",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} On ferme cette semaine fort. Ce qu'on close maintenant ça impacte le next sprint. QUI EST ENCORE CHAUD ? 🔥`},
+            {emoji:"💥",header:"ON OPTIMISE LA FIN DE SEMAINE",texte:`On est à ${pctObjectif}%. L'objectif hebdo c'est pas pour ce soir. Mais finir à 70-75% c'est honorable. On y va 💪`},
+            {emoji:"🎯",header:"DERNIÈRES HEURES — ON LAISSE TOUT SUR LE TERRAIN",texte:`${pick(MESSAGES_CEO)} La semaine touche à sa fin. Ce qui se close dans les 2 prochaines heures c'est pour l'honneur et pour le lundi. ALLEZ 🏆`},
+            {emoji:"🔥",header:"ON FERME CETTE SEMAINE EN TÊTE HAUTE",texte:`${pick(MESSAGES_PHILIPPE)} Chaque deal ce soir c'est du momentum pour la semaine prochaine. On lâche rien jusqu'à la fin. 💪`},
+          ]);
+          if (pctObjectif < 90) return pick([
+            {emoji:"🔥",header:"ON EST SI PROCHES — UN DERNIER EFFORT",texte:`${pctObjectif}% à 2h de la fin de semaine. L'objectif est pas loin. Chaque close maintenant peut tout changer. QUI SORT LE PROCHAIN DEAL ? 🔥`},
+            {emoji:"⚡",header:"LA SEMAINE PEUT ENCORE ÊTRE PARFAITE",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} On est à ${pctObjectif}%. Quelques closes et l'objectif hebdo tombe ce soir. ALLEZ LES CRACKS 💪`},
+            {emoji:"💥",header:"LE FINISH — C'EST MAINTENANT",texte:`Vendredi fin de journée, ${pctObjectif}% au compteur. On est si proches. Les boss finals ferment les deals maintenant. Le Brelan se mérite 🍺`},
+            {emoji:"🎯",header:"LES DEUX DERNIÈRES HEURES FONT LA SEMAINE",texte:`On est dans la zone de finish. ${pick(MESSAGES_CEO)} On a encore le temps de boucler l'objectif. ALLEZ 🏆`},
+          ]);
+          // >= 90% — objectif à portée réelle
+          return pick([
+            {emoji:"🏆",header:"ON FINIT CETTE SEMAINE EN BEAUTÉ 🍺🎉",texte:`${pctObjectif}%+ et 2 dernières heures. Le Brelan ce soir c'est validé. Finissez proprement et on célèbre 🥂`},
+            {emoji:"💥",header:"QUELLE SEMAINE ON VIENT DE FAIRE 🔥",texte:`${pick(MESSAGES_CEO)} ${pctObjectif}%+ en fin de vendredi. Quelques closes et l'objectif tombe. On profite du weekend 🏆`},
+            {emoji:"🚀",header:"L'OBJECTIF EST QUASIMENT PLIÉ",texte:`${pctObjectif}%+ vendredi fin de journée. Finissez et cette semaine rejoint le hall of fame 🐐`},
+            {emoji:"💪",header:"ON EST DES MONSTRES — OFFICIELLEMENT",texte:`${pick(MESSAGES_PHILIPPE)} ${pctObjectif}%+ et on approche de la ligne. Deux ou trois closes et c'est parfait. BRAVO 🙌`},
+          ]);
+        }
+
+        // ── VENDREDI DÉBUT D'APRÈM (12h-16h) ──
         if (pctObjectif < 50) return pick([
           {emoji:"🚨",header:"C'EST MAINTENANT OU JAMAIS 🚨",texte:`${pick(MESSAGES_PHILIPPE_PRESSION)} Dernier aprèm de la semaine. Le Brelan ce soir c'est pour ceux qui closent LÀ. ALLEZ 🍺🔥`},
           {emoji:"💥",header:"LES PROCHAINES HEURES DÉCIDENT DE LA SEMAINE",texte:"Dernier aprèm de la semaine. Faut pas que Philippe voie ce compteur ce soir. On donne tout MAINTENANT 😤"},
@@ -660,9 +717,9 @@ function getMilestoneAdaptatif(pctObjectif) {
         ]);
         if (pctObjectif < 80) return pick([
           {emoji:"🔥",header:"ON FINIT LE BOULOT 🍺",texte:`Chaque close maintenant = un verre au Brelan. ${pick(MESSAGES_CEO)} Qui balance le prochain deal ?`},
-          {emoji:"⚡",header:"L'OBJECTIF EST À PORTÉE DE MAIN",texte:"On y est presque. Quelques closes et cette semaine est dans la boîte. Vous êtes des monstres 💪"},
-          {emoji:"💪",header:"ON EST À UN DEAL DU BUT",texte:`${pick(MESSAGES_PHILIPPE)} L'objectif est à portée. Finissez ce que vous avez commencé. Le Brelan vous attend 🍺`},
-          {emoji:"🎯",header:"LE FINISH EST LÀ — ON CLOSE",texte:"Dernier aprèm et on approche. Les boss finals ferment les deals maintenant. Qui est le prochain ? 👑"},
+          {emoji:"⚡",header:"L'OBJECTIF EST À PORTÉE — ON ACCÉLÈRE",texte:"On est dans la course et l'aprèm est encore longue. Chaque close rapproche du but. Allez les monstres 💪"},
+          {emoji:"💪",header:"ON EST À UN SPRINT DU BUT",texte:`${pick(MESSAGES_PHILIPPE)} On est bien positionnés. L'aprèm pour tout finir proprement. Le Brelan vous attend 🍺`},
+          {emoji:"🎯",header:"LE FINISH COMMENCE — ON CLOSE",texte:"Début d'aprèm et on approche. On garde le rythme et cette semaine est dans la boîte avant 18h. Allez !"},
         ]);
         if (pctObjectif >= 80) return pick([
           {emoji:"🏆",header:"ON FINIT CETTE SEMAINE EN BEAUTÉ 🍺🎉",texte:`80%+ et le weekend qui arrive. Le Brelan ce soir c'est validé. Finissez proprement et on célèbre 🥂`},

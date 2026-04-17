@@ -39,6 +39,20 @@ if (state.objectifNbJours   === undefined) state.objectifNbJours   = null;
 
 function getDateStr(d = new Date()) { return d.toISOString().split("T")[0]; }
 
+// ── Heure/jour en timezone Paris (Railway tourne en UTC) ──────
+function getNowParis() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    hour: "2-digit", minute: "2-digit", hour12: false
+  }).formatToParts(now);
+  const h = parseInt(parts.find(p=>p.type==="hour").value, 10);
+  const m = parseInt(parts.find(p=>p.type==="minute").value, 10);
+  const dayStr = new Intl.DateTimeFormat("en-US", { timeZone:"Europe/Paris", weekday:"short" }).format(now);
+  const jourMap = {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
+  return { h, m, jour: jourMap[dayStr] ?? new Date().getDay() };
+}
+
 function mettreAJourPeriode() {
   if (!state.objectifNbJours || !state.objectifDateDebut) return;
   const joursEcoules = Math.floor((new Date(getDateStr()) - new Date(state.objectifDateDebut)) / 86400000);
@@ -264,7 +278,7 @@ function barreProgression(objectifDepart, restant) {
 // TEMPS RESTANT
 // ============================================================
 function getTempsRestant() {
-  const now=new Date(), nowMin=now.getHours()*60+now.getMinutes();
+  const {h:hP,m:mP}=getNowParis(); const nowMin=hP*60+mP;
   const debutMin=9*60, finMin=18*60+30;
   if (nowMin<=debutMin) return {label:"⏰  *Journée pas encore commencée !*",urgence:false,pctJourneeEcoule:0};
   if (nowMin>=finMin)   return {label:"🔔  *La journée est terminée !*",urgence:true,pctJourneeEcoule:100};
@@ -341,8 +355,8 @@ const PRESSION = {
 };
 
 function getMessagePression(pctJourneeEcoule, pctObjectifFait) {
-  const now=new Date(), h=now.getHours(), m=now.getMinutes();
-  const nowMin=h*60+m, finMin=18*60+30, restant=Math.max(0,finMin-nowMin), jour=now.getDay();
+  const {h,m,jour}=getNowParis();
+  const nowMin=h*60+m, finMin=18*60+30, restant=Math.max(0,finMin-nowMin);
   if (pctObjectifFait>=100) return null;
 
   if (jour===5&&h===17&&m>=30) return pick([
@@ -417,9 +431,7 @@ const MESSAGES_DEPASSEMENT = [
 // MILESTONES ADAPTATIFS — selon jour + heure + % objectif
 // ============================================================
 function getMilestoneAdaptatif(pctObjectif) {
-  const now  = new Date();
-  const h    = now.getHours();
-  const jour = now.getDay(); // 0=dim, 1=lun, 2=mar, 3=mer, 4=jeu, 5=ven, 6=sam
+  const {h, jour} = getNowParis();
   const isHebdo = !["la journée"].includes(state.modeLabel);
 
   // ── OBJECTIF HEBDOMADAIRE ────────────────────────────────
@@ -946,41 +958,143 @@ function formaterTopSales(top, periode, mode) {
 // ============================================================
 // MESSAGES PLANIFIÉS
 // ============================================================
+// MESSAGES_PLANIFIES — headers sans jour ni heure, texte dynamique via fonction (pct, modeLabel)
 const MESSAGES_PLANIFIES = {
   matin:{
-    lundi:[{header:"C'EST LUNDI — LA SEMAINE COMMENCE MAINTENANT 🚀",texte:"Nouveau lundi, nouvelles opportunités. Quitterie et Emmanuelle comptent sur vous. Qui ouvre le score ?"},{header:"RÉVEIL LUNDI — ON A UNE SEMAINE À GAGNER 🔥",texte:"C'est lundi les gars. Le weekend c'est fini, les closes c'est maintenant. On ouvre le bal !"}],
-    mardi:[{header:"MARDI — ON EST LANCÉS, ON CONTINUE 🔥",texte:"C'est mardi et la semaine prend forme. C'est maintenant qu'on envoie la frappe pour se mettre à l'aise."},{header:"C'EST MARDI — ET L'OBJECTIF NOUS REGARDE 👀",texte:"Mardi matin. La semaine se construit maintenant. Chaque deal compte. Qui envoie la frappe ce matin ?"}],
-    mercredi:[{header:"MERCREDI — MILIEU DE SEMAINE, PIVOT POINT ⚡",texte:"On est au milieu de la semaine les gars. C'est maintenant qu'on voit si on est dans les clous. Tout le monde pousse !"},{header:"HUMP DAY — C'EST MAINTENANT QU'ON BASCULE 🔥",texte:"Mercredi. Le pivot de la semaine. Ce qui se passe aujourd'hui définit la fin de semaine. Envoyez la frappe !"}],
-    jeudi:[{header:"JEUDI — L'AFTERWORK AU 7 ÇA SE MÉRITE 🍺🔥",texte:"C'est jeudi les gars. L'afterwork au 7 ce soir ça se mérite avec des closes. Qui est chaud pour ouvrir ce matin ?"},{header:"JEUDI — LE 7 VOUS ATTEND SI VOUS CLOSEZ 🍺😤",texte:"Jeudi matin. Le 7 ce soir c'est pour ceux qui ont mis les bouchées doubles aujourd'hui. Qui est dans cette catégorie ?"}],
-    vendredi:[{header:"VENDREDI — LE WEEKEND SE MÉRITE 🔥",texte:"C'est vendredi les gars ! Dernière ligne droite de la semaine. On finit fort et on mérite notre weekend. Allez !"},{header:"DERNIER JOUR — FINISSONS LA SEMAINE EN BEAUTÉ 💪",texte:"Vendredi matin. La semaine se termine aujourd'hui. C'est le moment de tout donner pour finir sur une belle note."}],
+    lundi:[
+      {header:"LA SEMAINE COMMENCE MAINTENANT 🚀",texte:(p,ml)=>`Le weekend c'est fini, les closes c'est maintenant. ${p>0?`Déjà ${p}% de l'objectif ${ml} au compteur. `:""}Qui ouvre le score cette semaine ?`},
+      {header:"QUI OUVRE LE BAL CETTE SEMAINE ? ☕",texte:(p,ml)=>`Nouveau lundi, nouvelles opportunités. ${pick(MESSAGES_CEO)} On a toute la semaine pour atteindre l'objectif ${ml}. Allez !`},
+      {header:"ON A UNE SEMAINE À GAGNER 💪",texte:(p,ml)=>`La semaine commence. L'objectif ${ml} nous attend. ${p>0?`${p}% déjà fait, `:""}On continue de monter 🎯`},
+      {header:"LE COMPTEUR TOURNE — QUI ENVOIE LA FRAPPE ? 🔥",texte:(p,ml)=>`Lundi matin et l'objectif ${ml} est là. ${pick(MESSAGES_PHILIPPE)} Premier close de la semaine, qui se lance ?`},
+    ],
+    mardi:[
+      {header:"LA SEMAINE PREND FORME — ON ACCÉLÈRE 🔥",texte:(p,ml)=>`La semaine avance. ${p>0?`On est à ${p}% de l'objectif ${ml}. `:""}C'est maintenant qu'on envoie la frappe pour se mettre à l'aise.`},
+      {header:"L'OBJECTIF NOUS REGARDE — ON LUI RÉPOND 👀",texte:(p,ml)=>`${p>0?`${p}% de fait sur l'objectif ${ml}. `:""}Chaque deal maintenant c'est de l'avance. Qui envoie la frappe ce matin ?`},
+      {header:"ON EST LANCÉS — ON LÂCHE RIEN 💪",texte:(p,ml)=>`${pick(MESSAGES_CEO)} ${p>0?`${p}% au compteur sur l'objectif ${ml}. `:""}On continue de pousser et la semaine va être belle !`},
+      {header:"L'OBJECTIF DE LA SEMAINE EST À PORTÉE 🎯",texte:(p,ml)=>`${p>=40?`${p}% de fait, on est en bonne posture sur l'objectif ${ml}. Gardez le rythme !`:`On est à ${p}% de l'objectif ${ml}. C'est maintenant qu'on met le turbo. Allez !`}`},
+    ],
+    mercredi:[
+      {header:"PIVOT DE MI-SEMAINE — TOUT LE MONDE POUSSE ⚡",texte:(p,ml)=>`Milieu de semaine et on est à ${p}% de l'objectif ${ml}. ${p>=50?"On est dans les clous, on garde le rythme !":"L'aprèm doit être forte. Tout le monde pousse !"}`},
+      {header:"LA SEMAINE SE JOUE MAINTENANT 🔥",texte:(p,ml)=>`${p>=50?`${p}% de fait à mi-semaine — c'est masterclass. ${pick(MESSAGES_CEO)}`:`On est à ${p}% à mi-semaine. ${pick(MESSAGES_PHILIPPE_PRESSION)} C'est maintenant qu'on bascule !`}`},
+      {header:"CE QUI SE PASSE AUJOURD'HUI DÉFINIT LA FIN DE SEMAINE 💥",texte:(p,ml)=>`Milieu de semaine, objectif ${ml} à ${p}%. ${p>=50?"Bien positionné. On continue à ce rythme et vendredi on célèbre.":"Il reste encore de la marge. Ce matin on accélère, l'aprèm on finit le boulot."}`},
+      {header:"HUMP DAY — ON BASCULE OU ON RESTE ? 🏆",texte:(p,ml)=>`${pick(MESSAGES_CEO)} On est à ${p}% de l'objectif ${ml}. ${p>=45?"Belle semaine en cours, on continue 💪":"Le momentum doit s'accélérer maintenant. Allez les cracks !"}`},
+    ],
+    jeudi:[
+      {header:"L'AFTERWORK AU 7 ÇA SE MÉRITE 🍺🔥",texte:(p,ml)=>`L'afterwork au 7 ce soir ça se mérite avec des closes. On est à ${p}% de l'objectif ${ml}. ${p>=65?"Quelques closes et c'est plié. Allez !":"On a encore tout le temps. Qui ouvre ce matin ?"}`},
+      {header:"AVANT-DERNIER JOUR — ON ENVOIE TOUT 💥",texte:(p,ml)=>`${p>=65?`${p}% de fait sur l'objectif ${ml} — on est en avance. Finissons proprement !`:`${p}% sur l'objectif ${ml}. Il reste aujourd'hui et demain pour tout donner. ${pick(MESSAGES_PHILIPPE_PRESSION)}`}`},
+      {header:"LE 7 VOUS ATTEND SI VOUS CLOSEZ 🍺😤",texte:(p,ml)=>`${pick(MESSAGES_PHILIPPE)} On est à ${p}% de l'objectif ${ml}. L'afterwork au 7 ce soir, c'est pour ceux qui closent maintenant.`},
+      {header:"DERNIER SPRINT DE LA SEMAINE — AUJOURD'HUI OU JAMAIS 🔥",texte:(p,ml)=>`On a aujourd'hui et demain. ${p}% de l'objectif ${ml} au compteur. ${p>=60?"L'objectif va tomber cette semaine. Finissons en beauté !":"On a besoin d'un gros push ces 2 jours. Tout le monde dessus !"}`},
+    ],
+    vendredi:[
+      {header:"DERNIER JOUR — ON FINIT FORT 🔥",texte:(p,ml)=>`Dernière journée de la semaine. On est à ${p}% de l'objectif ${ml}. ${p>=75?"Quelques closes et c'est dans la boîte. Le Brelan est validé 🍺":"On a toute la journée pour tout donner. Allez !"}`},
+      {header:"LE WEEKEND SE MÉRITE — ALORS ON CLOSE 💪",texte:(p,ml)=>`${p>=75?`${p}% de fait — quelle semaine ! Le Brelan ce soir c'est validé. Finissez proprement 🍺🎉`:`La semaine se finit aujourd'hui. ${p}% au compteur sur l'objectif ${ml}. On donne tout et on célèbre ce soir !`}`},
+      {header:"FINISSONS CETTE SEMAINE EN BEAUTÉ 🏆",texte:(p,ml)=>`${pick(MESSAGES_CEO)} On est à ${p}% de l'objectif ${ml}. Aujourd'hui on finit ce qu'on a commencé. Le Brelan vous attend 🍺`},
+      {header:"DERNIER BAL DE LA SEMAINE — QUI DANSE ? 💃🔥",texte:(p,ml)=>`Vendredi matin. ${p}% sur l'objectif ${ml}. ${p>=65?"On est sur une belle trajectoire. Finissons fort et on fête ça ce soir !":"L'objectif est encore atteignable. Closes en série dès maintenant, on y va !"}`},
+    ],
   },
   finMatinee:{
-    lundi:[{header:"11H30 LUNDI — ON EST BIEN PARTIS ? 👀",texte:"Milieu de matinée du lundi. Le compteur doit commencer à chauffer. Qui a déjà envoyé de la frappe ce matin ?"}],
-    mardi:[{header:"MARDI 11H30 — C'EST BIENTÔT LE WEEKEND... DANS 3 JOURS 😅🔥",texte:"C'est mardi, le weekend c'est vendredi. Mais entre les deux y'a des deals à closer. Allez les cracks !"}],
-    mercredi:[{header:"MERCREDI 11H30 — ON EST AU COEUR DE LA SEMAINE ⚡",texte:"Milieu de semaine, milieu de matinée. Double pivot. C'est le bon moment pour envoyer la frappe les gars !"}],
-    jeudi:[{header:"JEUDI 11H30 — LE 7 CE SOIR C'EST POUR LES CLOSERS 🍺😤",texte:"11h30 jeudi. L'afterwork au 7 se mérite deal par deal. Qui est en train de se l'offrir là ?"}],
-    vendredi:[{header:"VENDREDI 11H30 — LE BRELAN S'APPROCHE 🍺🔥",texte:"11h30 vendredi. Le Brelan ce soir c'est pour ceux qui closent maintenant. Qui est chaud ?"}],
+    lundi:[
+      {header:"LE COMPTEUR COMMENCE À CHAUFFER ? 👀",texte:(p,ml)=>`${p>0?`${p}% de l'objectif ${ml} déjà au compteur.`:"Le compteur attend ses premiers deals."} Qui a déjà envoyé de la frappe ce matin ?`},
+      {header:"ON EST BIEN PARTIS ? 🎯",texte:(p,ml)=>`${p>=20?`${p}% au compteur — beau début ! Si on garde ce rythme, la semaine va être belle.`:`${p}% sur l'objectif ${ml}. L'aprèm doit être plus chargée. Allez les gars !`}`},
+      {header:"LA MATINÉE TIRE À SA FIN ⚡",texte:(p,ml)=>`${pick(MESSAGES_CEO)} ${p}% de l'objectif ${ml} fait ce matin. L'aprèm commence bientôt — on va doubler la cadence !`},
+    ],
+    mardi:[
+      {header:"ON Y EST — QUI CLOSE MAINTENANT ? 🔥",texte:(p,ml)=>`${p}% de l'objectif ${ml} au compteur. Le reste de la semaine se construit deal par deal. Allez les cracks !`},
+      {header:"LA MATINÉE AVANCE VITE ⚡",texte:(p,ml)=>`${pick(MESSAGES_PHILIPPE)} ${p}% fait sur l'objectif ${ml}. L'aprèm c'est le moment de passer la 2ème vitesse !`},
+      {header:"LE MOMENTUM EST LÀ — ON EN PROFITE 💪",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. Si on continue à cette cadence, l'objectif va tomber bien avant vendredi !`},
+    ],
+    mercredi:[
+      {header:"ON EST AU COEUR DE LA SEMAINE ⚡",texte:(p,ml)=>`Milieu de semaine, milieu de matinée. ${p}% de l'objectif ${ml}. C'est le bon moment pour envoyer la frappe les gars !`},
+      {header:"LE PIVOT C'EST MAINTENANT 🔥",texte:(p,ml)=>`${p}% au compteur sur l'objectif ${ml}. ${p>=45?"On est dans les clous. L'aprèm pour finir fort !":"On accélère maintenant et demain on est en avance."}`},
+      {header:"MI-SEMAINE — L'HEURE DE VÉRITÉ 📊",texte:(p,ml)=>`${pick(MESSAGES_CEO)} ${p}% de l'objectif ${ml} fait. ${p>=50?"Masterclass à mi-semaine. On continue !":`Il faut pousser maintenant pour finir la semaine en beauté.`}`},
+    ],
+    jeudi:[
+      {header:"LE 7 CE SOIR C'EST POUR LES CLOSERS 🍺😤",texte:(p,ml)=>`${p}% de l'objectif ${ml}. L'afterwork au 7 se mérite deal par deal. Qui est en train de se l'offrir là ?`},
+      {header:"AVANT-DERNIÈRE MATINÉE DE LA SEMAINE 💥",texte:(p,ml)=>`${pick(MESSAGES_PHILIPPE)} ${p}% sur l'objectif ${ml}. Il reste aujourd'hui et demain pour finir fort. On pousse maintenant !`},
+      {header:"L'OBJECTIF EST À PORTÉE — ON L'ATTRAPE 🎯",texte:(p,ml)=>`${p}% fait sur l'objectif ${ml}. ${p>=60?"On est bien positionnés. L'aprèm pour finaliser !":"Chaque close maintenant est critique. Allez les gars !"}`},
+    ],
+    vendredi:[
+      {header:"LE BRELAN S'APPROCHE 🍺🔥",texte:(p,ml)=>`${p}% de l'objectif ${ml}. Le Brelan ce soir c'est pour ceux qui closent maintenant. Qui est chaud ?`},
+      {header:"DERNIÈRE MATINÉE DE LA SEMAINE 💪",texte:(p,ml)=>`${p}% au compteur sur l'objectif ${ml}. Ce matin on attaque, l'aprèm on finalise, ce soir on célèbre 🍺`},
+      {header:"LA SEMAINE SE GAGNE CE MATIN 🔥",texte:(p,ml)=>`${p>=65?`${p}% — on est en bonne posture ! Quelques closes ce matin et le Brelan est validé 🍺`:`${p}% sur l'objectif ${ml}. On a le matin et l'aprèm pour tout donner. ALLEZ !`}`},
+    ],
   },
   apresLunch:{
-    lundi:[{header:"LUNDI APRÈM — ON REPART DE PLUS BELLE 🚀",texte:"Le déj c'est fini. Le lundi aprèm commence. C'est maintenant qu'on met le turbo sur la semaine !"}],
-    mardi:[{header:"MARDI APRÈM — C'EST MAINTENANT QU'ON ENVOIE 💪",texte:"14h mardi. La semaine est encore longue mais l'aprèm c'est maintenant. Closes du 🍑 en série !"}],
-    mercredi:[{header:"MERCREDI APRÈM — PIVOT TOTAL 🔥",texte:"14h mercredi. Milieu de semaine milieu de journée. C'est LE moment charnière. Tout le monde pousse !"}],
-    jeudi:[{header:"JEUDI APRÈM — LE 7 SE MÉRITE MAINTENANT 🍺🔥",texte:"14h jeudi. L'afterwork au 7 se gagne deal par deal. C'est maintenant qu'on le mérite. Allez !"}],
-    vendredi:[{header:"VENDREDI APRÈM — LE BRELAN VOUS ATTEND 🍺😤",texte:"14h vendredi. Le Brelan ce soir c'est pour ceux qui closent maintenant. Qui est dans la course ?"}],
+    lundi:[
+      {header:"ON REPART DE PLUS BELLE 🚀",texte:(p,ml)=>`Le déj c'est fini. ${p}% de l'objectif ${ml} au compteur. L'aprèm commence — on met le turbo et on finit la journée fort !`},
+      {header:"LE TURBO EST ENCLENCHÉ 💪",texte:(p,ml)=>`Retour au combat. ${p}% sur l'objectif ${ml}. L'aprèm du lundi c'est pour poser les bases de la semaine. Allez !`},
+      {header:"L'APRÈM COMMENCE — QUI OUVRE ? 🎯",texte:(p,ml)=>`${pick(MESSAGES_PHILIPPE)} ${p}% de l'objectif ${ml}. L'aprèm commence, c'est maintenant qu'on envoie de la frappe !`},
+    ],
+    mardi:[
+      {header:"CLOSES DU 🍑 EN SÉRIE — C'EST L'HEURE 💪",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. L'aprèm de mardi c'est le meilleur moment pour closer. Qui balance le prochain deal ?`},
+      {header:"C'EST MAINTENANT QU'ON ENVOIE 🔥",texte:(p,ml)=>`${pick(MESSAGES_CEO)} ${p}% de l'objectif ${ml} fait. L'aprèm commence — deals en série, on lâche rien !`},
+      {header:"L'APRÈM DÉCIDE DE LA SEMAINE ⚡",texte:(p,ml)=>`${p}% au compteur sur l'objectif ${ml}. Cette aprèm peut tout changer. Tout le monde pousse maintenant !`},
+    ],
+    mercredi:[
+      {header:"PIVOT TOTAL — C'EST MAINTENANT 🔥",texte:(p,ml)=>`Milieu de journée, milieu de semaine. ${p}% de l'objectif ${ml}. C'est LE moment charnière. Tout le monde pousse !`},
+      {header:"L'APRÈM DE MI-SEMAINE EST DÉCISIVE 💥",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. Cette aprèm définit jeudi et vendredi. On envoie la frappe maintenant !`},
+      {header:"CE QUI SE PASSE LÀ DÉFINIT LA FIN DE SEMAINE 🎯",texte:(p,ml)=>`${pick(MESSAGES_PHILIPPE)} ${p}% de l'objectif ${ml}. L'aprèm est là pour inverser ou consolider. Allez les cracks !`},
+    ],
+    jeudi:[
+      {header:"LE 7 SE MÉRITE MAINTENANT 🍺🔥",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. L'afterwork au 7 se gagne deal par deal. C'est maintenant qu'on le mérite. Allez !`},
+      {header:"AVANT-DERNIÈRE APRÈM DE LA SEMAINE 💥",texte:(p,ml)=>`${p}% de l'objectif ${ml}. Il reste cet aprèm et demain. ${p>=65?"On est bien positionnés. On finit proprement !":"On donne tout maintenant. Pas le temps d'attendre !"}`},
+      {header:"L'URGENCE C'EST MAINTENANT 🚨",texte:(p,ml)=>`${pick(MESSAGES_PHILIPPE_PRESSION)} ${p}% de l'objectif ${ml}. Cette aprèm est critique pour finir la semaine en beauté. ALLEZ !`},
+    ],
+    vendredi:[
+      {header:"LE BRELAN VOUS ATTEND 🍺😤",texte:(p,ml)=>`${p}% de l'objectif ${ml}. Le Brelan ce soir c'est pour ceux qui closent maintenant. Qui est dans la course ?`},
+      {header:"DERNIÈRE APRÈM DE LA SEMAINE 🔥",texte:(p,ml)=>`${p}% au compteur sur l'objectif ${ml}. Dernier aprèm. Tout ce qu'on close maintenant c'est de la semaine gagnée. ALLEZ !`},
+      {header:"C'EST L'HEURE DU FINISH 🏁💥",texte:(p,ml)=>`${pick(MESSAGES_CEO)} ${p}% sur l'objectif ${ml}. Le Brelan ce soir = chaque close cet aprèm. Qui balance le prochain deal ? 🍺`},
+    ],
   },
   soir:{
-    lundi:[{header:"FIN DE JOURNÉE LUNDI — ON FAIT LE BILAN 📊",texte:"17h30 lundi. Le premier jour de la semaine se termine. Demain on remet le couvert !"}],
-    mardi:[{header:"MARDI SOIR — C'EST BIENTÔT LE WEEKEND... ENFIN PRESQUE 😅",texte:"17h30 mardi. Encore 3 jours. Mais aujourd'hui c'est dans la boîte. Demain on repart encore plus fort !"}],
-    mercredi:[{header:"MERCREDI SOIR — LE CAP EST PASSÉ 🏆",texte:"17h30 mercredi. La moitié de la semaine est derrière nous. Les deux derniers jours vont être décisifs !"}],
-    jeudi:[{header:"JEUDI SOIR — L'AFTERWORK AU 7 SE MÉRITE 🍺🔥",texte:"17h30 jeudi. L'afterwork au 7 ce soir c'est pour ceux qui ont tout donné aujourd'hui. Vous y étiez ?"}],
-    vendredi:[{header:"VENDREDI 17H30 — DERNIER PUSH AVANT LE BRELAN 🍺🔥",texte:"17h30 vendredi. Tout ceux qui closent avant 18h30 je leur paye un verre au Brelan. C'est dit, c'est promis. Allez !"},{header:"DERNIER PUSH DU VENDREDI — LE BRELAN VOUS ATTEND 🍺💪",texte:"Plus qu'une heure. Chaque close avant 18h30 = un verre au Brelan offert. Qui est chaud pour finir en beauté ?"}],
+    lundi:[
+      {header:"ON FAIT LE BILAN — ET ON REPART DEMAIN 📊",texte:(p,ml)=>`Fin de journée. ${p}% de l'objectif ${ml} au compteur. ${p>=20?"Belle journée de lundi ! Demain on continue sur cette lancée.":"La journée est terminée. Demain on remonte les manches et on repart plus fort !"}`},
+      {header:"LA JOURNÉE EST DANS LA BOÎTE 🙌",texte:(p,ml)=>`${p}% sur l'objectif ${ml} après le premier jour. ${pick(MESSAGES_PHILIPPE)} Reposez-vous — demain on remet le couvert !`},
+      {header:"ROUND 1 TERMINÉ — À DEMAIN POUR LE ROUND 2 💪",texte:(p,ml)=>`${p}% de l'objectif ${ml} au bout du premier jour. ${p>=20?"Bon départ !":"Pas le meilleur départ, mais demain c'est une nouvelle page."} À demain les monstres !`},
+    ],
+    mardi:[
+      {header:"LA JOURNÉE EST TERMINÉE — À DEMAIN 💪",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. ${p>=40?"Bonne progression. Demain on continue !":" Encore du chemin mais on a le temps. Demain on repart encore plus fort !"}`},
+      {header:"ON FAIT LE POINT — ET ON REVIENT DEMAIN 📊",texte:(p,ml)=>`${p}% de l'objectif ${ml}. ${pick(MESSAGES_CEO)} Reposez-vous, demain la semaine se joue pour de vrai.`},
+      {header:"JOURNÉE DANS LA BOÎTE — DEMAIN ON ACCÉLÈRE 🔥",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. ${p>=35?"On est dans les clous.":"Il va falloir accélérer demain."} À demain les cracks !`},
+    ],
+    mercredi:[
+      {header:"LE CAP EST PASSÉ — LA DESCENTE VERS LE WEEKEND 🏆",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. La moitié de la semaine est derrière nous. Les deux derniers jours vont être décisifs !`},
+      {header:"MI-SEMAINE BOUCLÉE 🎯",texte:(p,ml)=>`${p}% de l'objectif ${ml}. ${p>=50?"On est en bonne posture pour finir la semaine fort. Demain on accélère !":"Il reste jeudi et vendredi pour tout donner. Reposez-vous et revenez demain en mode berserker !"}`},
+      {header:"ON A PASSÉ LE MIL DE MI-SEMAINE 💥",texte:(p,ml)=>`${pick(MESSAGES_PHILIPPE)} ${p}% sur l'objectif ${ml}. Demain jeudi, avant-dernier jour — c'est là que les vrais se révèlent. À demain !`},
+    ],
+    jeudi:[
+      {header:"L'AFTERWORK AU 7 SE MÉRITE 🍺🔥",texte:(p,ml)=>`${p}% de l'objectif ${ml} au compteur. L'afterwork au 7 ce soir c'est pour ceux qui ont tout donné. Vous y étiez ?`},
+      {header:"AVANT-DERNIER JOUR BOUCLÉ 💪",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. Demain c'est le grand final. Reposez-vous et revenez vendredi en mode finish.`},
+      {header:"DEMAIN C'EST LE GRAND FINAL 🏆",texte:(p,ml)=>`${p}% de l'objectif ${ml}. Demain vendredi = dernier jour. ${p>=65?"On est en bonne posture. Finissons en beauté !":"Il reste tout à donner demain. Dormez bien, demain on est là."}`},
+    ],
+    vendredi:[
+      {header:"DERNIER PUSH AVANT LE BRELAN 🍺🔥",texte:(p,ml)=>`${p}% de l'objectif ${ml}. Tout ceux qui closent avant 18h30 je leur paye un verre au Brelan. C'est dit, c'est promis. Allez !`},
+      {header:"LE BRELAN VOUS ATTEND 🍺💪",texte:(p,ml)=>`Plus qu'une heure. ${p}% sur l'objectif ${ml}. Chaque close avant 18h30 = un verre au Brelan offert. Qui est chaud ?`},
+      {header:"L'HEURE DU FINISH — QUI CLOSE ? 🏁🔥",texte:(p,ml)=>`${pick(MESSAGES_PHILIPPE)} ${p}% de l'objectif ${ml}. Les derniers closes de la semaine appartiennent aux boss finals. Qui les prend ?`},
+    ],
   },
   cloture:{
-    lundi:[{header:"BONNE SOIRÉE — À DEMAIN POUR LE ROUND 2 🙌",texte:"18h30 lundi. La journée est terminée. On rentre et on revient demain encore plus forts !"}],
-    mardi:[{header:"MARDI TERMINÉ — À DEMAIN LES MONSTRES 💪",texte:"18h30 mardi. Encore deux jours et demi. On rentre et demain on remet le couvert !"}],
-    mercredi:[{header:"MERCREDI BOUCLÉ — LA DESCENTE VERS LE WEEKEND COMMENCE 🔥",texte:"18h30 mercredi. Le plus dur est derrière vous. Deux jours pour finir fort. À demain les cracks !"}],
-    jeudi:[{header:"JEUDI TERMINÉ — DEMAIN C'EST LE GRAND FINAL 🏆",texte:"18h30 jeudi. Demain c'est vendredi. On arrive frais et on finit en beauté !"}],
-    vendredi:[{header:"BON WEEKEND LES GARS — VOUS L'AVEZ MÉRITÉ 🎉🍺",texte:"18h30 vendredi. La semaine est terminée. Profitez bien du weekend, vous avez bossé dur. À lundi !"},{header:"WEEKEND — RECHARGEZ LES BATTERIES 🔋🙌",texte:"C'est fini pour cette semaine. Quitterie, Emmanuelle et Philippe sont fiers. Bon weekend les monstres !"}],
+    lundi:[
+      {header:"BONNE SOIRÉE — À DEMAIN 🙌",texte:(p,ml)=>`Fin de journée. ${p}% de l'objectif ${ml}. On rentre, on recharge, et demain on revient encore plus forts !`},
+      {header:"LA JOURNÉE EST TERMINÉE — REPOS MÉRITÉ 💪",texte:(p,ml)=>`${p}% sur l'objectif ${ml} au bout du premier jour. ${pick(MESSAGES_CEO)} À demain les monstres !`},
+    ],
+    mardi:[
+      {header:"À DEMAIN LES MONSTRES 💪",texte:(p,ml)=>`${p}% de l'objectif ${ml}. Encore deux jours et demi. On rentre et demain on remet le couvert encore plus fort !`},
+      {header:"JOURNÉE TERMINÉE — REVENEZ EN FORME 🔋",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. Demain mercredi, pivot de la semaine. Rechargez bien 🙌`},
+    ],
+    mercredi:[
+      {header:"LA DESCENTE VERS LE WEEKEND COMMENCE 🔥",texte:(p,ml)=>`${p}% de l'objectif ${ml}. Le plus dur est derrière vous. Deux jours pour finir fort. À demain les cracks !`},
+      {header:"MI-SEMAINE DERRIÈRE NOUS 🏆",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. Demain jeudi et vendredi pour finir cette semaine en beauté. Bon repos !`},
+    ],
+    jeudi:[
+      {header:"DEMAIN C'EST LE GRAND FINAL 🏆",texte:(p,ml)=>`${p}% de l'objectif ${ml}. Demain c'est vendredi. On arrive frais et on finit en beauté. Bonne soirée !`},
+      {header:"AVANT-DERNIER JOUR DANS LA BOÎTE 💥",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. Demain vendredi = dernier sprint. Rechargez les batteries. À demain 🏁`},
+    ],
+    vendredi:[
+      {header:"BON WEEKEND — VOUS L'AVEZ MÉRITÉ 🎉🍺",texte:(p,ml)=>`La semaine est terminée. ${p}% sur l'objectif ${ml}. Profitez bien du weekend, vous avez bossé dur. À lundi !`},
+      {header:"WEEKEND — RECHARGEZ LES BATTERIES 🔋🙌",texte:(p,ml)=>`${p}% de l'objectif ${ml} cette semaine. ${pick(MESSAGES_CEO)} Bon weekend les monstres — lundi on repart plus forts !`},
+      {header:"LA SEMAINE EST DANS LA BOÎTE 🏆",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. ${pick(MESSAGES_PHILIPPE)} Rechargez les batteries et revenez lundi en mode berserker. Bon weekend !`},
+    ],
   },
 };
 
@@ -988,7 +1102,7 @@ const JOURS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"
 
 function demarrerPlanificateur(client) {
   setInterval(async () => {
-    const now=new Date(), h=now.getHours(), m=now.getMinutes(), jour=now.getDay();
+    const {h,m,jour}=getNowParis();
     if (jour===0||jour===6) return;
     let moment=null;
     if (h===9&&m===0)  moment="matin";
@@ -1002,14 +1116,15 @@ function demarrerPlanificateur(client) {
     if (!msgs||msgs.length===0) return;
     const msg = pick(msgs);
     const pct = Math.round((1-Math.max(0,state.objectif)/state.objectifDepart)*100);
+    const texte = typeof msg.texte==="function" ? msg.texte(pct, state.modeLabel) : msg.texte;
     await client.chat.postMessage({
       channel:`#${CANAL_SORTIE}`, text:msg.header,
       blocks:[
-        {type:"section",text:{type:"mrkdwn",text:`⏰  *${msg.header}*\n_${msg.texte}_`}},
+        {type:"section",text:{type:"mrkdwn",text:`⏰  *${msg.header}*\n_${texte}_`}},
         {type:"divider"},
         {type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}},
         {type:"section",text:{type:"mrkdwn",text:barreProgression(state.objectifDepart,state.objectif)}},
-        {type:"section",text:{type:"mrkdwn",text:`*${Math.max(0,state.objectif).toLocaleString("fr-FR")}€* restants sur *${state.objectifDepart.toLocaleString("fr-FR")}€*`}},
+        {type:"section",text:{type:"mrkdwn",text:`*${Math.max(0,state.objectif).toLocaleString("fr-FR")}€* restants sur *${state.objectifDepart.toLocaleString("fr-FR")}€* _(${state.modeLabel})_`}},
       ],
     });
   }, 60*1000);

@@ -312,37 +312,28 @@ const MESSAGES_CEO = [
   "Quitterie va kiffer le compte rendu de cette journée, vous êtes des monstres 😤",
 ];
 
-// Phrase bonus aléatoire après chaque milestone — QE, Philippe, motivation, ou rien
-// QE = ~25% des cas, Philippe = ~25%, motivation = ~25%, rien = ~25%
-const MESSAGES_BONUS_QE = [
+// Pool bonus milestone — tout mélangé, les null = silence
+const POOL_BONUS_MILESTONE = [
   "👑 _Quitterie et Emmanuelle regardent le compteur._",
   "👀 _Quitterie a les yeux sur vous._",
   "👑 _Emmanuelle et Quitterie comptent sur vous._",
-  "🙌 _Quitterie attend les résultats — montrez-lui._",
-  "💼 _Les CEO regardent. Montrez-leur ce que vous valez._",
-  "👑 _Quitterie va kiffer ce compteur._",
-  "🔥 _Emmanuelle suit ça de près — à vous de jouer._",
   "😤 _Emmanuelle regarde. Vous savez ce qu'il reste à faire._",
-];
-const MESSAGES_BONUS_PHILIPPE = [
   "💬 _Philippe surveille le compteur de près._",
   "👁️ _Philippe a l'œil dessus — montrez-lui._",
   "😤 _Philippe attend les résultats._",
   "🔥 _Philippe va être content si vous closez là._",
-];
-const MESSAGES_BONUS_MOTIV = [
   "⚡ _Deal après deal. C'est comme ça qu'on gagne._",
   "🎯 _Chaque close compte. On lâche rien._",
   "💪 _Les boss finals closent maintenant._",
   "🔥 _C'est maintenant que les vrais se révèlent._",
   "😤 _Le momentum est là. On en profite._",
+  "🚀 _On construit quelque chose ici. Deal après deal._",
+  "💥 _Chaque close c'est de l'histoire._",
+  null, null, null, null, null,
+  null, null, null, null, null,
 ];
 function getBonusMilestone() {
-  const r = Math.random();
-  if (r < 0.25) return pick(MESSAGES_BONUS_QE);
-  if (r < 0.50) return pick(MESSAGES_BONUS_PHILIPPE);
-  if (r < 0.75) return pick(MESSAGES_BONUS_MOTIV);
-  return ""; // 25% du temps : rien
+  return pick(POOL_BONUS_MILESTONE) || "";
 }
 const MESSAGES_PHILIPPE = [
   "Philippe va être trop content quand il verra ça — beau travail les gars 👏",

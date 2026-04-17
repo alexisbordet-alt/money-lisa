@@ -311,6 +311,20 @@ const MESSAGES_CEO = [
   "Les CEO regardent et elles aiment ce qu'elles voient 👑🔥",
   "Quitterie va kiffer le compte rendu de cette journée, vous êtes des monstres 😤",
 ];
+
+// Phrase Quitterie/Emmanuelle injectée dans CHAQUE milestone
+const MESSAGES_QE = [
+  "👑 _Quitterie et Emmanuelle regardent le compteur._",
+  "👀 _Quitterie a les yeux sur vous._",
+  "👑 _Emmanuelle et Quitterie comptent sur vous._",
+  "🙌 _Quitterie attend les résultats — montrez-lui._",
+  "💼 _Les CEO regardent. Montrez-leur ce que vous valez._",
+  "👑 _Quitterie va kiffer ce compteur._",
+  "🔥 _Emmanuelle suit ça de près — à vous de jouer._",
+  "💪 _Quitterie et Emmanuelle sont dans la loop — faites-les sourire._",
+  "👑 _Ce genre de perf, Quitterie en parle au board._",
+  "😤 _Emmanuelle regarde. Vous savez ce qu'il reste à faire._",
+];
 const MESSAGES_PHILIPPE = [
   "Philippe va être trop content quand il verra ça — beau travail les gars 👏",
   "Philippe ne va pas être déçu du voyage — vous envoyez de la frappe 🔥",
@@ -916,7 +930,7 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
 
   // ── 2. MILESTONE / PRESSION / CLOSE Q sous le titre ──────
   if (milestone) {
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_\n${pick(MESSAGES_QE)}`}});
   } else if (closeQ) {
     const msgQ = pick(MESSAGES_CLOSE_Q);
     blocks.push({type:"section",text:{type:"mrkdwn",text:`🍑  *${msgQ.header}*\n_${msgQ.texte}_`}});
@@ -983,7 +997,7 @@ async function envoyerStatut(channel, client) {
 
   // ── 2. MILESTONE ou PRESSION sous le titre ───────────────
   if (milestone) {
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_\n${pick(MESSAGES_QE)}`}});
   } else if (pression) {
     blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${typeof pression.texte==="function"?pression.texte():pression.texte}_`}});
   }
@@ -1274,7 +1288,7 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
         const blocks = [];
         blocks.push({type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}});
         if (milestone) {
-          blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_`}});
+          blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_\n${pick(MESSAGES_QE)}`}});
         } else if (pression) {
           blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${typeof pression.texte==="function"?pression.texte():pression.texte}_`}});
         }

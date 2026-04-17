@@ -24,14 +24,35 @@ function chargerState() {
   return {
     modeLabel: "la semaine", objectifDepart: 8073, objectif: 8073,
     buffer: [], milestonesVus: [], tsDejaComptes: [], montantsComptes: {}, salesStats: {}, nbCompteurs: 0,
+    objectifDateDebut: null, objectifNbJours: null,
   };
 }
 function sauvegarderState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); }
 
 let state = chargerState();
-if (!state.tsDejaComptes)   state.tsDejaComptes   = [];
-if (!state.montantsComptes) state.montantsComptes  = {};
-if (!state.salesStats)      state.salesStats       = {};
+if (!state.tsDejaComptes)    state.tsDejaComptes    = [];
+if (!state.montantsComptes)  state.montantsComptes  = {};
+if (!state.salesStats)       state.salesStats       = {};
+if (state.nbCompteurs  == null) state.nbCompteurs   = 0;
+if (state.objectifDateDebut === undefined) state.objectifDateDebut = null;
+if (state.objectifNbJours   === undefined) state.objectifNbJours   = null;
+
+function getDateStr(d = new Date()) { return d.toISOString().split("T")[0]; }
+
+function mettreAJourPeriode() {
+  if (!state.objectifNbJours || !state.objectifDateDebut) return;
+  const joursEcoules = Math.floor((new Date(getDateStr()) - new Date(state.objectifDateDebut)) / 86400000);
+  const restants = state.objectifNbJours - joursEcoules;
+  let newLabel;
+  if (restants <= 1)      newLabel = "la journée";
+  else if (restants <= 4) newLabel = `les ${restants} prochains jours`;
+  else                    newLabel = `les ${restants} prochains jours`;
+  if (newLabel !== state.modeLabel) {
+    state.modeLabel = newLabel;
+    if (restants <= 0) { state.objectifNbJours = null; state.objectifDateDebut = null; }
+    sauvegarderState(state);
+  }
+}
 
 // ============================================================
 // UTILITAIRES
@@ -91,11 +112,15 @@ function detecterPeriode(texte) {
   const mSemaine = ["semaine","semaien","smeaine","smaine","semiane","semmaine","semainne","semain","seamine","semaie","weekly","wekly","semain"];
   if (mots.some(m => proche(m, mSemaine))) return "la semaine";
 
-  // ── JOURNÉE ───────────────────────────────────────────────
-  if (/\b(?:de\s+la|la)\s+journ[eé]e\b|\bjournn?[eé]e?\b/i.test(t)) return "la journée";
-  const mJournee = ["journee","journee","jounree","jorunee","journe","journé","daily","dayli","daly"];
-  if (mots.some(m => proche(m, mJournee))) return "la journée";
-  if (mots.some(m => proche(m, ["jour","jours","day","today","today"]))) return "la journée";
+  // ── N PROCHAINS JOURS / SEMAINES (avant le fallback jour/jours) ──
+  const mS = tSans.match(/(\d+)\s*semaines?/);
+  if (mS) return `les ${mS[1]} prochaines semaines`;
+  const mJ = tSans.match(/(\d+)\s*(?:prochains?\s+)?jours?/);
+  if (mJ && parseInt(mJ[1])>1) return `les ${mJ[1]} prochains jours`;
+  if (mJ && parseInt(mJ[1])===1) return "la journée";
+
+  // ── MOIS ─────────────────────────────────────────────────
+  if (mots.some(m => proche(m,["mois","mosi","mios","mis","month"]))) return "le mois";
 
   // ── FIN DE SEMAINE ────────────────────────────────────────
   const mFin = ["fin","fiin","fni","end"];
@@ -103,11 +128,11 @@ function detecterPeriode(texte) {
     if (proche(mots[i],mFin) && mots.slice(i+1).some(m=>proche(m,mSemaine))) return "la fin de semaine";
   if (/fin.{0,8}s[eé]m/i.test(t)) return "la fin de semaine";
 
-  // ── N PROCHAINS JOURS / SEMAINES ─────────────────────────
-  const mS = tSans.match(/(\d+)\s*semaines?/);
-  if (mS) return `les ${mS[1]} prochaines semaines`;
-  const mJ = tSans.match(/(\d+)\s*(?:prochains?\s+)?jours?/);
-  if (mJ && parseInt(mJ[1])>1) return `les ${mJ[1]} prochains jours`;
+  // ── JOURNÉE ───────────────────────────────────────────────
+  if (/\b(?:de\s+la|la)\s+journ[eé]e\b|\bjournn?[eé]e?\b/i.test(t)) return "la journée";
+  const mJournee = ["journee","jounree","jorunee","journe","journé","daily","dayli","daly"];
+  if (mots.some(m => proche(m, mJournee))) return "la journée";
+  if (mots.some(m => proche(m, ["jour","jours","day","today"]))) return "la journée";
 
   // ── JUSQU'AU / AVANT / D'ICI ─────────────────────────────
   const mJusq = t.match(/(?:jusqu['']?|jusq['']?|jusqua|juska)\s*(?:au?|[àa])?\s+(.{2,20}?)(?:\s|$)/);
@@ -116,9 +141,6 @@ function detecterPeriode(texte) {
   if (mAv) return `la période avant ${mAv[1].trim()}`;
   const mDici = tSans.match(/(?:dici|jusqua)\s+(.{2,20}?)(?:\s|$)/);
   if (mDici) return `la période d'ici ${mDici[1].trim()}`;
-
-  // ── MOIS ─────────────────────────────────────────────────
-  if (mots.some(m => proche(m,["mois","mosi","mios","mis","month"]))) return "le mois";
 
   return "la semaine";
 }
@@ -174,21 +196,42 @@ function extraireTousMRR(texte) {
     return montants;
   }
 
-  // ── 5. 1 seul montant en € = MRR ─────────────────────────
+  // ── 5. Montants en € ─────────────────────────────────────
   const euros = [...sanFaux.matchAll(/\b(\d[\d\s]*)\s*€/g)]
     .filter(m=>!m.input.slice(m.index-10,m.index+20).includes("IGNORE"));
+
   if (euros.length===1) {
     const montant = parseInt(euros[0][1].replace(/\s/g,""),10);
     if (!isNaN(montant)&&montant>0&&montant<100000) return [montant];
   }
 
-  // ── 6. Message "Close/Upsell [nom] [montant]" sans € ─────
+  // ── 5b. Plusieurs montants € dans un message close/deal/upsell ──
+  if (euros.length>=2 && euros.length<=5) {
+    // On filtre les montants valides
+    const montants = euros
+      .map(m=>parseInt(m[1].replace(/\s/g,""),10))
+      .filter(m=>!isNaN(m)&&m>0&&m<100000);
+    if (montants.length>=2) {
+      console.log(`✅ Multi-€ détecté : ${montants.join(" + ")} = ${montants.reduce((s,m)=>s+m,0)}€`);
+      return montants;
+    }
+  }
+
+  // ── 6. Message "Close/Upsell [nom] [montant(s)]" sans € ──
   if (/^\s*(?:close|deal|won|vendu|sign[eé]|upsell|upgrade|extension)\b/i.test(sanFaux)) {
-    const nums = [...sanFaux.matchAll(/\b(\d{2,4})\b/g)]
+    const nums = [...sanFaux.matchAll(/\b(\d{2,5})\b/g)]
       .filter(m=>!m.input.slice(m.index-5,m.index+15).includes("IGNORE"));
     if (nums.length===1) {
       const montant = parseInt(nums[0][1],10);
-      if (!isNaN(montant)&&montant>10&&montant<10000) return [montant];
+      if (!isNaN(montant)&&montant>10&&montant<100000) return [montant];
+    }
+    // Plusieurs montants sans € dans un message close/deal
+    if (nums.length>=2 && nums.length<=4) {
+      const montants = nums.map(m=>parseInt(m[1],10)).filter(m=>m>10&&m<100000);
+      if (montants.length>=2) {
+        console.log(`✅ Multi-montants sans € : ${montants.join(" + ")} = ${montants.reduce((s,m)=>s+m,0)}€`);
+        return montants;
+      }
     }
   }
 
@@ -761,7 +804,7 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
 
   // ── 2. MILESTONE / PRESSION / CLOSE Q sous le titre ──────
   if (milestone) {
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*\n_${milestone.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_`}});
   } else if (closeQ) {
     const msgQ = pick(MESSAGES_CLOSE_Q);
     blocks.push({type:"section",text:{type:"mrkdwn",text:`🍑  *${msgQ.header}*\n_${msgQ.texte}_`}});
@@ -828,7 +871,7 @@ async function envoyerStatut(channel, client) {
 
   // ── 2. MILESTONE ou PRESSION sous le titre ───────────────
   if (milestone) {
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*\n_${milestone.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_`}});
   } else if (pression) {
     blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${typeof pression.texte==="function"?pression.texte():pression.texte}_`}});
   }
@@ -1016,7 +1059,7 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
         const blocks = [];
         blocks.push({type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}});
         if (milestone) {
-          blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*\n_${milestone.texte}_`}});
+          blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_`}});
         } else if (pression) {
           blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${typeof pression.texte==="function"?pression.texte():pression.texte}_`}});
         }
@@ -1101,6 +1144,7 @@ async function traiterSuppression({ts,channel}, client) {
 // COMMANDES @Money Lisa
 // ============================================================
 app.event("app_mention", async ({event,say}) => {
+  mettreAJourPeriode();
   const texte=event.text, tl=texte.toLowerCase();
   console.log("🔔 Mention :",texte);
 
@@ -1116,16 +1160,50 @@ app.event("app_mention", async ({event,say}) => {
     return;
   }
 
+  // ── COMMANDE AVANCÉE : "avancée 400 sur 20000" ───────────────
+  // Conserve l'avancée quand on remet un objectif
+  const mAvancee = tl.match(/(?:avanc[eé]e?|progression|progress|deja|déjà)\s*(?:de\s+)?(\d[\d\s,\.]*k?)\s*(?:sur|\/|de)\s*(\d[\d\s,\.]*k?)/i);
+  if (mAvancee) {
+    const avance = extraireObjectif(mAvancee[1].trim());
+    const total  = extraireObjectif(mAvancee[2].trim());
+    if (!avance||!total||isNaN(avance)||isNaN(total)) { await say(`❌ Format non reconnu. Ex : \`@Money Lisa avancée 400 sur 20000\``); return; }
+    const reste = total - avance;
+    state.objectifDepart = total;
+    state.objectif       = reste;
+    state.milestonesVus  = [];
+    // Recalculer les milestones déjà franchis pour ne pas les re-déclencher
+    const pctDeja = Math.round((avance / total) * 100);
+    for (const t of [25,50,75,100]) { if (pctDeja >= t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
+    sauvegarderState(state);
+    await say(`🎯 Objectif *${total.toLocaleString("fr-FR")}€* — avancée de *${avance.toLocaleString("fr-FR")}€* conservée → il reste *${reste.toLocaleString("fr-FR")}€* _(${state.modeLabel})_`);
+    return;
+  }
+
   const mObj=texte.match(/(?:objectif|obj|objctif|obejctif|objetcif|ojbectif|objecti|obectif)\s*(.*)/i);
   if (mObj) {
     const reste=mObj[1].trim();
     const nouvel=extraireObjectif(reste);
     if (!nouvel||isNaN(nouvel)){await say(`❌ Montant non reconnu. Ex : \`@Money Lisa objectif 9k pour la semaine\``);return;}
     const periode=detecterPeriode(reste);
-    state.objectifDepart=nouvel;state.objectif=nouvel;state.modeLabel=periode;
-    state.buffer=[];state.milestonesVus=[];state.tsDejaComptes=[];state.montantsComptes={};state.nbCompteurs=0;
+    // Stocker le countdown si N prochains jours ou mois
+    const matchJours = periode.match(/^les (\d+) prochains jours$/);
+    const matchMois  = periode === "le mois";
+    state.objectifDepart=nouvel; state.objectif=nouvel; state.modeLabel=periode;
+    state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
+    if (matchJours) {
+      state.objectifNbJours   = parseInt(matchJours[1]);
+      state.objectifDateDebut = getDateStr();
+    } else if (matchMois) {
+      const now = new Date();
+      state.objectifNbJours   = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate() - now.getDate() + 1;
+      state.objectifDateDebut = getDateStr();
+    } else {
+      state.objectifNbJours   = null;
+      state.objectifDateDebut = null;
+    }
     sauvegarderState(state);
-    await say(`🎯 L'objectif pour *${periode}* est fixé à *${nouvel.toLocaleString("fr-FR")}€*`);
+    const explication = matchJours ? ` _(jour 1/${state.objectifNbJours}, se met à jour automatiquement)_` : matchMois ? ` _(${state.objectifNbJours} jours restants ce mois)_` : "";
+    await say(`🎯 L'objectif pour *${periode}* est fixé à *${nouvel.toLocaleString("fr-FR")}€*${explication}`);
     return;
   }
 

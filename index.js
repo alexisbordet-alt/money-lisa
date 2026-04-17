@@ -1230,6 +1230,28 @@ function demarrerPlanificateur(client) {
   setInterval(async () => {
     const {h,m,jour}=getNowParis();
     if (jour===0||jour===6) return;
+
+    // ── MILESTONE QUOTIDIEN 16H ──────────────────────────────
+    if (h===16&&m===0) {
+      mettreAJourPeriode();
+      const pct = state.objectifDepart>0 ? Math.round((1-Math.max(0,state.objectif)/state.objectifDepart)*100) : 0;
+      const milestone = getMilestoneForce(state.objectifDepart, state.objectif);
+      if (!milestone) return;
+      const bonus = getBonusMilestone();
+      await client.chat.postMessage({
+        channel:`#${CANAL_SORTIE}`, text:`${milestone.emoji} ${milestone.header}`,
+        blocks:[
+          {type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}},
+          {type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_${bonus?`\n${bonus}`:""}`}},
+          {type:"divider"},
+          {type:"section",text:{type:"mrkdwn",text:barreProgression(state.objectifDepart,state.objectif)}},
+          {type:"section",text:{type:"mrkdwn",text:`*${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* restants sur *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(${state.modeLabel})_`}},
+        ],
+      });
+      return;
+    }
+
+    // ── MESSAGES PLANIFIÉS ───────────────────────────────────
     let moment=null;
     if (h===9&&m===0)  moment="matin";
     if (h===11&&m===30) moment="finMatinee";

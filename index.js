@@ -83,13 +83,26 @@ function getWeekKey(date) {
 // EXTRACTION OBJECTIF
 // ============================================================
 function extraireObjectif(texte) {
+  // "9.5k" ou "9,5k"
   const matchK = texte.match(/(\d+)[,.](\d+)\s*k/i);
-  if (matchK) return parseInt(matchK[1],10)*1000 + parseInt(matchK[2],10)*100;
+  if (matchK) return parseFloat(matchK[1] + "." + matchK[2]) * 1000;
+  // "9k"
   const matchK2 = texte.match(/(\d+)\s*k/i);
-  if (matchK2) return parseInt(matchK2[1],10)*1000;
-  const matchN = texte.match(/(\d[\d\s]*)/);
-  if (matchN) return parseInt(matchN[1].replace(/\s/g,""),10);
+  if (matchK2) return parseInt(matchK2[1], 10) * 1000;
+  // nombre avec décimale : "12 544.1" ou "12 544,1" ou "12 544"
+  const matchN = texte.match(/(\d[\d\s]*(?:[.,]\d+)?)/);
+  if (matchN) {
+    const raw = matchN[1].replace(/\s/g, "").replace(",", ".");
+    const val = parseFloat(raw);
+    return isNaN(val) ? null : val;
+  }
   return null;
+}
+
+// Affichage montant en format FR (virgule pour décimale, espace pour milliers)
+function formatEur(n) {
+  if (n == null || isNaN(n)) return "0";
+  return n.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 // ============================================================
@@ -178,28 +191,31 @@ function extraireTousMRR(texte) {
   const sanFaux = sanFF
     .replace(/\b\d+\s*(?:pax|pers(?:onnes?)?|places?|ans?|mois|jours?|semaines?|%|h\b)/gi,"IGNORE");
 
+  // helper : parse un montant brut avec décimale (point ou virgule)
+  function parseMontant(raw) {
+    const s = raw.replace(/\s/g,"").replace(",",".");
+    const v = parseFloat(s);
+    return isNaN(v)||v<=0||v>=1000000 ? null : Math.round(v*100)/100;
+  }
+
   // ── 3. Cherche MRR explicite ─────────────────────────────
-  const mrrReg = /(\d[\d\s]*)\s*€?\s*(?:de\s+)?(?:m\.?r\.?r?\.?|mrr|mmr|rmr)\s*(?:annuel(?:le)?)?|(?:m\.?r\.?r?\.?|mrr|mmr|rmr)\s*(?:annuel(?:le)?\s*)?[:\-]?\s*(\d[\d\s]*)/gi;
+  const mrrReg = /(\d[\d\s]*(?:[.,]\d+)?)\s*€?\s*(?:de\s+)?(?:m\.?r\.?r?\.?|mrr|mmr|rmr)\s*(?:annuel(?:le)?)?|(?:m\.?r\.?r?\.?|mrr|mmr|rmr)\s*(?:annuel(?:le)?\s*)?[:\-]?\s*(\d[\d\s]*(?:[.,]\d+)?)/gi;
 
   const resultats = [];
   let match;
   while ((match = mrrReg.exec(sanFaux)) !== null) {
-    const raw = (match[1]||match[2]||"").replace(/\s/g,"");
-    const montant = parseInt(raw,10);
-    if (isNaN(montant)||montant<=0||montant>=100000) continue;
+    const montant = parseMontant(match[1]||match[2]||"");
+    if (montant===null) continue;
     if (!resultats.some(r=>Math.abs(r.index-match.index)<20))
       resultats.push({montant,index:match.index});
   }
 
   // ── 4. Cherche UPSELL explicite ──────────────────────────
-  // Reconnaît : upsell, up-sell, upgrade, montée en gamme,
-  // extension, ajout module, augmentation contrat, extension contrat
-  const upsellReg = /(?:upsell|up[\s\-]?sell|upgr[ae]de|mont[eé]e?\s*en\s*gamme|extension|ajout\s*(?:module|option|utilisateur|user|licence|licences?)|augmentation\s*(?:contrat|abonnement|licence)|cross[\s\-]?sell|addon|add[\s\-]?on)\s*[:\-]?\s*[+]?\s*(\d[\d\s]*)\s*€?|[+]?\s*(\d[\d\s]*)\s*€?\s*(?:d[e']?\s*)?(?:upsell|up[\s\-]?sell|upgr[ae]de|extension|ajout)/gi;
+  const upsellReg = /(?:upsell|up[\s\-]?sell|upgr[ae]de|mont[eé]e?\s*en\s*gamme|extension|ajout\s*(?:module|option|utilisateur|user|licence|licences?)|augmentation\s*(?:contrat|abonnement|licence)|cross[\s\-]?sell|addon|add[\s\-]?on)\s*[:\-]?\s*[+]?\s*(\d[\d\s]*(?:[.,]\d+)?)\s*€?|[+]?\s*(\d[\d\s]*(?:[.,]\d+)?)\s*€?\s*(?:d[e']?\s*)?(?:upsell|up[\s\-]?sell|upgr[ae]de|extension|ajout)/gi;
 
   while ((match = upsellReg.exec(sanFaux)) !== null) {
-    const raw = (match[1]||match[2]||"").replace(/\s/g,"");
-    const montant = parseInt(raw,10);
-    if (isNaN(montant)||montant<=0||montant>=100000) continue;
+    const montant = parseMontant(match[1]||match[2]||"");
+    if (montant===null) continue;
     if (!resultats.some(r=>Math.abs(r.index-match.index)<20))
       resultats.push({montant,index:match.index,isUpsell:true});
   }
@@ -210,21 +226,18 @@ function extraireTousMRR(texte) {
     return montants;
   }
 
-  // ── 5. Montants en € ─────────────────────────────────────
-  const euros = [...sanFaux.matchAll(/\b(\d[\d\s]*)\s*€/g)]
+  // ── 5. Montants en € (avec décimales) ────────────────────
+  const euros = [...sanFaux.matchAll(/\b(\d[\d\s]*(?:[.,]\d+)?)\s*€/g)]
     .filter(m=>!m.input.slice(m.index-10,m.index+20).includes("IGNORE"));
 
   if (euros.length===1) {
-    const montant = parseInt(euros[0][1].replace(/\s/g,""),10);
-    if (!isNaN(montant)&&montant>0&&montant<100000) return [montant];
+    const montant = parseMontant(euros[0][1]);
+    if (montant!==null) return [montant];
   }
 
   // ── 5b. Plusieurs montants € dans un message close/deal/upsell ──
   if (euros.length>=2 && euros.length<=5) {
-    // On filtre les montants valides
-    const montants = euros
-      .map(m=>parseInt(m[1].replace(/\s/g,""),10))
-      .filter(m=>!isNaN(m)&&m>0&&m<100000);
+    const montants = euros.map(m=>parseMontant(m[1])).filter(m=>m!==null);
     if (montants.length>=2) {
       console.log(`✅ Multi-€ détecté : ${montants.join(" + ")} = ${montants.reduce((s,m)=>s+m,0)}€`);
       return montants;
@@ -233,15 +246,14 @@ function extraireTousMRR(texte) {
 
   // ── 6. Message "Close/Upsell [nom] [montant(s)]" sans € ──
   if (/^\s*(?:close|deal|won|vendu|sign[eé]|upsell|upgrade|extension)\b/i.test(sanFaux)) {
-    const nums = [...sanFaux.matchAll(/\b(\d{2,5})\b/g)]
+    const nums = [...sanFaux.matchAll(/\b(\d{2,6}(?:[.,]\d+)?)\b/g)]
       .filter(m=>!m.input.slice(m.index-5,m.index+15).includes("IGNORE"));
     if (nums.length===1) {
-      const montant = parseInt(nums[0][1],10);
-      if (!isNaN(montant)&&montant>10&&montant<100000) return [montant];
+      const montant = parseMontant(nums[0][1]);
+      if (montant!==null&&montant>10) return [montant];
     }
-    // Plusieurs montants sans € dans un message close/deal
     if (nums.length>=2 && nums.length<=4) {
-      const montants = nums.map(m=>parseInt(m[1],10)).filter(m=>m>10&&m<100000);
+      const montants = nums.map(m=>parseMontant(m[1])).filter(m=>m!==null&&m>10);
       if (montants.length>=2) {
         console.log(`✅ Multi-montants sans € : ${montants.join(" + ")} = ${montants.reduce((s,m)=>s+m,0)}€`);
         return montants;
@@ -792,10 +804,10 @@ function getMilestoneForce(objectifDepart, objectif) {
 // CONSTRUCTION DU CALCUL
 // ============================================================
 function construireCalcul(deals, ancienObjectif, restant) {
-  const debut  = `*${ancienObjectif.toLocaleString("fr-FR")}€*`;
-  const soustr = deals.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR")}€`).join("  ");
-  const res    = `*${restant.toLocaleString("fr-FR")}€*`;
-  const obj    = `${state.objectifDepart.toLocaleString("fr-FR")}€  _(${state.modeLabel})_`;
+  const debut  = `*${ancienObjectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`;
+  const soustr = deals.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€`).join("  ");
+  const res    = `*${restant.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`;
+  const obj    = `${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`;
   return `${debut}  ${soustr}  =  ${res}  /  ${obj}`;
 }
 
@@ -804,7 +816,7 @@ function construireCalcul(deals, ancienObjectif, restant) {
 // ============================================================
 function construireMessage(deals, ancienObjectif, restant, objectifDepart, milestone, closeQ=false) {
   const depasse     = restant<0;
-  const depasseAff  = Math.abs(restant).toLocaleString("fr-FR");
+  const depasseAff  = Math.abs(restant).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
   const pctObjectif = Math.round((1-Math.max(0,restant)/objectifDepart)*100);
   const temps       = getTempsRestant();
   const pression    = getMessagePression(temps.pctJourneeEcoule, pctObjectif);
@@ -832,7 +844,7 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
     blocks.push({type:"section",text:{type:"mrkdwn",text:calcul}});
     blocks.push({type:"section",text:{type:"mrkdwn",text:barreProgression(objectifDepart,restant)}});
     blocks.push({type:"divider"});
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`🏆  *${msg.header}*\n> *Objectif pour ${state.modeLabel} : ${state.objectifDepart.toLocaleString("fr-FR")}€*\n> *+${depasseAff}€ AU-DESSUS DE L'OBJECTIF* 🔥\n\n_${msg.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`🏆  *${msg.header}*\n> *Objectif pour ${state.modeLabel} : ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*\n> *+${depasseAff}€ AU-DESSUS DE L'OBJECTIF* 🔥\n\n_${msg.texte}_`}});
     return blocks;
   }
 
@@ -873,8 +885,8 @@ async function envoyerStatut(channel, client) {
   const milestone   = verifierMilestone(state.objectifDepart, state.objectif);
 
   const calcul = mrrBuffer>0
-    ? `*${ancienObjectif.toLocaleString("fr-FR")}€*  ${bufferSnapshot.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR")}€`).join("  ")}  =  *${Math.max(0,state.objectif).toLocaleString("fr-FR")}€*  /  ${state.objectifDepart.toLocaleString("fr-FR")}€  _(${state.modeLabel})_`
-    : `*${Math.max(0,state.objectif).toLocaleString("fr-FR")}€*  /  ${state.objectifDepart.toLocaleString("fr-FR")}€  _(${state.modeLabel})_`;
+    ? `*${ancienObjectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  ${bufferSnapshot.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€`).join("  ")}  =  *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`
+    : `*${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`;
 
   const blocks = [];
 
@@ -903,7 +915,7 @@ async function envoyerStatut(channel, client) {
 // MESSAGE MODIFICATION / SUPPRESSION
 // ============================================================
 function construireMessageModif(restant, objectifDepart, msgTexte, isSuppression=false) {
-  const calcul = `*${objectifDepart.toLocaleString("fr-FR")}€*  →  *${Math.max(0,restant).toLocaleString("fr-FR")}€*  _(${state.modeLabel})_`;
+  const calcul = `*${objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  →  *${Math.max(0,restant).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  _(${state.modeLabel})_`;
   return [
     {type:"section",text:{type:"mrkdwn",text:`${isSuppression?"🗑️":"✏️"}  _${msgTexte}_`}},
     {type:"divider"},
@@ -949,8 +961,8 @@ function formaterTopSales(top, periode, mode) {
   const medals=["🥇","🥈","🥉"];
   if (top.length===0) return `📊 *Top Sales — ${periodeLabel}*\n\nAucun deal enregistré pour l'instant. Allez les gars, on ouvre le bal ! 🚀`;
   const lignes=top.map((s,i)=>mode==="valeur"
-    ?`${medals[i]}  *${s.name}* — ${s.mrr.toLocaleString("fr-FR")}€ MRR (${s.closes} close${s.closes>1?"s":""})`
-    :`${medals[i]}  *${s.name}* — ${s.closes} close${s.closes>1?"s":""} (${s.mrr.toLocaleString("fr-FR")}€ MRR)`
+    ?`${medals[i]}  *${s.name}* — ${s.mrr.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€ MRR (${s.closes} close${s.closes>1?"s":""})`
+    :`${medals[i]}  *${s.name}* — ${s.closes} close${s.closes>1?"s":""} (${s.mrr.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€ MRR)`
   ).join("\n");
   return `🏆  *TOP SALES — ${periodeLabel.toUpperCase()} (${modeLabel})*\n\n${lignes}\n\n_${pick(MESSAGES_TOP_SALES_FIN)}_`;
 }
@@ -1124,7 +1136,7 @@ function demarrerPlanificateur(client) {
         {type:"divider"},
         {type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}},
         {type:"section",text:{type:"mrkdwn",text:barreProgression(state.objectifDepart,state.objectif)}},
-        {type:"section",text:{type:"mrkdwn",text:`*${Math.max(0,state.objectif).toLocaleString("fr-FR")}€* restants sur *${state.objectifDepart.toLocaleString("fr-FR")}€* _(${state.modeLabel})_`}},
+        {type:"section",text:{type:"mrkdwn",text:`*${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* restants sur *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(${state.modeLabel})_`}},
       ],
     });
   }, 60*1000);
@@ -1170,7 +1182,7 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
         const pctObjectif = Math.round((1-Math.max(0,state.objectif)/state.objectifDepart)*100);
         const temps = getTempsRestant();
         const pression = getMessagePression(temps.pctJourneeEcoule, pctObjectif);
-        const calcul = `*${state.objectifDepart.toLocaleString("fr-FR")}€*  →  *${Math.max(0,state.objectif).toLocaleString("fr-FR")}€*  /  ${state.objectifDepart.toLocaleString("fr-FR")}€  _(${state.modeLabel})_`;
+        const calcul = `*${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  →  *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`;
         const blocks = [];
         blocks.push({type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}});
         if (milestone) {
@@ -1273,7 +1285,7 @@ app.event("app_mention", async ({event,say}) => {
   if (/\b(?:switch|swicth|swich|swithc|switcher|change|changer|chagne|chnage|modif(?:ie[rz]?)?|modifier|passer?|basculer?|mettre?\s*(?:sur|en|à)|mode|période|periode|period)\b/i.test(tl)) {
     state.modeLabel=detecterPeriode(texte);
     sauvegarderState(state);
-    await say(`🔄 Période changée : *${state.modeLabel}*\nL'objectif reste à *${state.objectif.toLocaleString("fr-FR")}€* et le buffer est conservé (${state.buffer.length}/3).`);
+    await say(`🔄 Période changée : *${state.modeLabel}*\nL'objectif reste à *${state.objectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* et le buffer est conservé (${state.buffer.length}/3).`);
     return;
   }
 
@@ -1290,7 +1302,7 @@ app.event("app_mention", async ({event,say}) => {
     const pctDeja = Math.round((avance/total)*100);
     for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
     sauvegarderState(state);
-    await say(`🎯 Objectif *${total.toLocaleString("fr-FR")}€* — avancée de *${avance.toLocaleString("fr-FR")}€* conservée → il reste *${reste.toLocaleString("fr-FR")}€* _(${state.modeLabel})_`);
+    await say(`🎯 Objectif *${total.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* — avancée de *${avance.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* conservée → il reste *${reste.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(${state.modeLabel})_`);
     return;
   }
 
@@ -1306,7 +1318,7 @@ app.event("app_mention", async ({event,say}) => {
     const pctDeja = Math.round((avance/total)*100);
     for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
     sauvegarderState(state);
-    await say(`📍 Avancée de *${avance.toLocaleString("fr-FR")}€* enregistrée sur l'objectif *${total.toLocaleString("fr-FR")}€* → il reste *${Math.max(0,reste).toLocaleString("fr-FR")}€* _(${state.modeLabel})_`);
+    await say(`📍 Avancée de *${avance.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* enregistrée sur l'objectif *${total.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* → il reste *${Math.max(0,reste).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(${state.modeLabel})_`);
     return;
   }
 
@@ -1329,7 +1341,7 @@ app.event("app_mention", async ({event,say}) => {
         const pctDeja = Math.round((avance/total)*100);
         for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
         sauvegarderState(state);
-        await say(`🎯 Objectif *${total.toLocaleString("fr-FR")}€* _(${periode})_ — avancée de *${avance.toLocaleString("fr-FR")}€* prise en compte → il reste *${restant.toLocaleString("fr-FR")}€*`);
+        await say(`🎯 Objectif *${total.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(${periode})_ — avancée de *${avance.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* prise en compte → il reste *${restant.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`);
         return;
       }
     }
@@ -1349,7 +1361,7 @@ app.event("app_mention", async ({event,say}) => {
     } else { state.objectifNbJours=null; state.objectifDateDebut=null; }
     sauvegarderState(state);
     const explication = matchJours?` _(jour 1/${state.objectifNbJours}, se met à jour automatiquement)_`:matchMois?` _(${state.objectifNbJours} jours restants ce mois)_`:"";
-    await say(`🎯 L'objectif pour *${periode}* est fixé à *${nouvel.toLocaleString("fr-FR")}€*${explication}`);
+    await say(`🎯 L'objectif pour *${periode}* est fixé à *${nouvel.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*${explication}`);
     return;
   }
 
@@ -1361,7 +1373,7 @@ app.event("app_mention", async ({event,say}) => {
     const ancien=state.objectifDepart;
     state.objectifDepart+=ajout; state.objectif+=ajout;
     sauvegarderState(state);
-    await say(`➕ *${ajout.toLocaleString("fr-FR")}€* ajoutés — nouvel objectif : *${state.objectifDepart.toLocaleString("fr-FR")}€* _(était ${ancien.toLocaleString("fr-FR")}€)_`);
+    await say(`➕ *${ajout.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* ajoutés — nouvel objectif : *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${ancien.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_`);
     return;
   }
 
@@ -1373,7 +1385,7 @@ app.event("app_mention", async ({event,say}) => {
     const ancien=state.objectif;
     state.objectif+=montant;
     sauvegarderState(state);
-    await say(`↩️ *${montant.toLocaleString("fr-FR")}€* retirés — objectif ajusté : *${state.objectif.toLocaleString("fr-FR")}€* _(était ${ancien.toLocaleString("fr-FR")}€)_`);
+    await say(`↩️ *${montant.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* retirés — objectif ajusté : *${state.objectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${ancien.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_`);
     return;
   }
 

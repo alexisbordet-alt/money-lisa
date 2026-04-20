@@ -1769,7 +1769,13 @@ app.event("message", async ({event,client}) => {
       console.log(`📊 Objectif  : ${state.objectif}€ / ${state.objectifDepart}€`);
       console.log(`📅 Période   : ${state.modeLabel}`);
       console.log(`📥 Buffer    : ${state.buffer.length}/3`);
-      demarrerPlanificateur(app.client);
+      // ── Planificateur désactivé sur demande ─────────────────────
+      // Plus aucun message planifié (milestone quotidien 16h, relances
+      // 9h/11h30/14h/17h30/18h30). Le bot ne réagit plus qu'aux closes
+      // postées par les commerciaux. Pour réactiver : décommenter la
+      // ligne ci-dessous.
+      // demarrerPlanificateur(app.client);
+      console.log("🕒 Planificateur : DÉSACTIVÉ (aucun message automatique)");
     } catch(e) {
       console.error("❌ Erreur, nouvelle tentative dans 5s...", e.message);
       setTimeout(demarrer, 5000);

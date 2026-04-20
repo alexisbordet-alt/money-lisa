@@ -83,26 +83,6 @@ function pickRare(arr, proba = 0.18) {
 function pickCEO()            { return pickRare(MESSAGES_CEO, 0.18); }
 function pickPhilippe()       { return pickRare(MESSAGES_PHILIPPE, 0.15); }
 function pickPhilippePression(){ return pickRare(MESSAGES_PHILIPPE_PRESSION, 0.15); }
-
-// ── Contexte temporel pour enrichir les milestones ──────────
-// Donne une ligne "Mardi 14h30 — la semaine — 42% fait" à coller
-// au-dessus du texte des milestones pour les rendre plus pertinents.
-function getContexteTemporel(pctObjectif) {
-  const { h, m, jour } = getNowParis();
-  const jours = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
-  const jourLabel = jours[jour] || "";
-  const heureLabel = m > 0 ? `${h}h${String(m).padStart(2,"0")}` : `${h}h`;
-  const periode = state.modeLabel || "";
-  const pctSafe = Math.max(0, Math.min(100, pctObjectif | 0));
-  let avancement;
-  if (pctSafe >= 100)       avancement = "objectif atteint 🏆";
-  else if (pctSafe >= 75)   avancement = `${pctSafe}% faits — le finish est là`;
-  else if (pctSafe >= 50)   avancement = `${pctSafe}% faits — mi-chemin dépassé`;
-  else if (pctSafe >= 25)   avancement = `${pctSafe}% faits — bien lancé`;
-  else if (pctSafe > 0)     avancement = `${pctSafe}% faits — on commence`;
-  else                      avancement = "compteur à zéro";
-  return `📅 _${jourLabel} ${heureLabel} • objectif ${periode} • ${avancement}_`;
-}
 function getWeekKey(date) {
   const d = new Date(date);
   d.setHours(0,0,0,0);
@@ -1042,43 +1022,38 @@ function getMilestoneAdaptatif(pctObjectif) {
 // ============================================================
 // VÉRIFICATION MILESTONES
 // ============================================================
+// verifierMilestone : ne renvoie QUE les paliers 25/50/75/100.
+// Entre deux milestones forcés (toutes les 5 flushes), cette fonction
+// renvoie null, donc le compteur s'affiche seul sans header décoratif.
 function verifierMilestone(objectifDepart, objectif) {
   if (!objectifDepart || objectifDepart <= 0) return null;
   const pct = Math.round((1 - Math.max(0, objectif) / objectifDepart) * 100);
 
-  let triggered = null;
   for (const threshold of [25, 50, 75, 100]) {
     if (pct >= threshold && !state.milestonesVus.includes(threshold)) {
       state.milestonesVus.push(threshold);
+      sauvegarderState(state);
       const m = MILESTONES[String(threshold)];
-      // On injecte un contexte temporel (jour, heure, période d'objectif,
-      // avancement) pour que le message soit vraiment pertinent au moment
-      // où il est envoyé, et non un texte générique.
-      triggered = {
+      return {
         emoji: m.emoji,
         header: pick(m.header),
-        texte: `${pick(m.texte)}\n${getContexteTemporel(pct)}`,
+        texte: pick(m.texte),
       };
     }
-  }
-
-  if (triggered) {
-    sauvegarderState(state);
-    return triggered;
-  }
-
-  const adaptatif = getMilestoneAdaptatif(pct);
-  if (adaptatif) {
-    return { ...adaptatif, texte: `${adaptatif.texte}\n${getContexteTemporel(pct)}` };
   }
   return null;
 }
 
+// getMilestoneForce : utilisé uniquement pour les milestones FORCÉS
+// (tous les 5 compteurs). Ordre : palier franchi > adaptatif (contextuel
+// jour/heure/avancement) > fallback générique.
 function getMilestoneForce(objectifDepart, objectif) {
   const m = verifierMilestone(objectifDepart, objectif);
   if (m) return m;
   const pct = objectifDepart > 0 ? Math.round((1 - Math.max(0, objectif) / objectifDepart) * 100) : 0;
-  const fallback = pick([
+  const adaptatif = getMilestoneAdaptatif(pct);
+  if (adaptatif) return adaptatif;
+  return pick([
     {emoji:"🔥",header:"ON CONTINUE — DEAL APRÈS DEAL",texte:`${pickPhilippe()} Chaque close compte, on lâche rien. 💪`},
     {emoji:"⚡",header:"LE MOMENTUM EST LÀ — ON EN PROFITE",texte:`${pickCEO()} Gardez la cadence les gars !`},
     {emoji:"💪",header:"C'EST COMME ÇA QU'ON CONSTRUIT UN OBJECTIF",texte:"Deal après deal, close après close. C'est le game et vous êtes dans le game 🎯"},
@@ -1086,9 +1061,6 @@ function getMilestoneForce(objectifDepart, objectif) {
     {emoji:"😤",header:"LES MONSTRES SONT EN TRAIN DE CLOSER",texte:`${pickPhilippe()} C'est exactement ce qu'on veut voir. 🐐`},
     {emoji:"🏆",header:"DEAL AFTER DEAL — C'EST LE STYLE MONEY LISA",texte:"On accumule, on cumule, on performe. L'objectif va tomber si vous continuez comme ça 🎯"},
   ]);
-  // Contexte temporel ajouté pour rendre le message pertinent (jour,
-  // heure, période de l'objectif, avancement).
-  return { ...fallback, texte: `${fallback.texte}\n${getContexteTemporel(pct)}` };
 }
 
 // ============================================================
@@ -1120,12 +1092,12 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
   // ── 2. MILESTONE / PRESSION / CLOSE Q sous le titre ──────
   if (milestone) {
     const _bonus1 = getBonusMilestone();
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_${_bonus1?`\n${_bonus1}`:""}`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n${milestone.texte}${_bonus1?`\n${_bonus1}`:""}`}});
   } else if (closeQ) {
     const msgQ = pick(MESSAGES_CLOSE_Q);
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`🍑  *${msgQ.header}*\n_${msgQ.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`🍑  *${msgQ.header}*\n${msgQ.texte}`}});
   } else if (pression&&!depasse) {
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${typeof pression.texte==="function"?pression.texte():pression.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n${typeof pression.texte==="function"?pression.texte():pression.texte}`}});
   }
 
   blocks.push({type:"divider"});
@@ -1136,7 +1108,7 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
     blocks.push({type:"section",text:{type:"mrkdwn",text:calcul}});
     blocks.push({type:"section",text:{type:"mrkdwn",text:barreProgression(objectifDepart,restant)}});
     blocks.push({type:"divider"});
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`🏆  *${msg.header}*\n> *Objectif pour ${state.modeLabel} : ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*\n> *+${depasseAff}€ AU-DESSUS DE L'OBJECTIF* 🔥\n\n_${msg.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`🏆  *${msg.header}*\n> *Objectif pour ${state.modeLabel} : ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*\n> *+${depasseAff}€ AU-DESSUS DE L'OBJECTIF* 🔥\n\n${msg.texte}`}});
     return blocks;
   }
 
@@ -1188,9 +1160,9 @@ async function envoyerStatut(channel, client) {
   // ── 2. MILESTONE ou PRESSION sous le titre ───────────────
   if (milestone) {
     const _bonus2 = getBonusMilestone();
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_${_bonus2?`\n${_bonus2}`:""}`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n${milestone.texte}${_bonus2?`\n${_bonus2}`:""}`}});
   } else if (pression) {
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${typeof pression.texte==="function"?pression.texte():pression.texte}_`}});
+    blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n${typeof pression.texte==="function"?pression.texte():pression.texte}`}});
   }
 
   blocks.push({type:"divider"});
@@ -1210,7 +1182,7 @@ async function envoyerStatut(channel, client) {
 function construireMessageModif(restant, objectifDepart, msgTexte, isSuppression=false) {
   const calcul = `*${objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  →  *${Math.max(0,restant).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  _(${state.modeLabel})_`;
   return [
-    {type:"section",text:{type:"mrkdwn",text:`${isSuppression?"🗑️":"✏️"}  _${msgTexte}_`}},
+    {type:"section",text:{type:"mrkdwn",text:`${isSuppression?"🗑️":"✏️"}  ${msgTexte}`}},
     {type:"divider"},
     {type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}},
     {type:"divider"},
@@ -1421,7 +1393,7 @@ function demarrerPlanificateur(client) {
         channel:`#${CANAL_SORTIE}`, text:`${milestone.emoji} ${milestone.header}`,
         blocks:[
           {type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}},
-          {type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_${bonus?`\n${bonus}`:""}`}},
+          {type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n${milestone.texte}${bonus?`\n${bonus}`:""}`}},
           {type:"divider"},
           {type:"section",text:{type:"mrkdwn",text:barreProgression(state.objectifDepart,state.objectif)}},
           {type:"section",text:{type:"mrkdwn",text:`*${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* restants sur *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(${state.modeLabel})_`}},
@@ -1447,7 +1419,7 @@ function demarrerPlanificateur(client) {
     await client.chat.postMessage({
       channel:`#${CANAL_SORTIE}`, text:msg.header,
       blocks:[
-        {type:"section",text:{type:"mrkdwn",text:`⏰  *${msg.header}*\n_${texte}_`}},
+        {type:"section",text:{type:"mrkdwn",text:`⏰  *${msg.header}*\n${texte}`}},
         {type:"divider"},
         {type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}},
         {type:"section",text:{type:"mrkdwn",text:barreProgression(state.objectifDepart,state.objectif)}},
@@ -1502,9 +1474,9 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
         blocks.push({type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}});
         if (milestone) {
           const _bonus3 = getBonusMilestone();
-          blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n_${milestone.texte}_${_bonus3?`\n${_bonus3}`:""}`}});
+          blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n${milestone.texte}${_bonus3?`\n${_bonus3}`:""}`}});
         } else if (pression) {
-          blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n_${typeof pression.texte==="function"?pression.texte():pression.texte}_`}});
+          blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n${typeof pression.texte==="function"?pression.texte():pression.texte}`}});
         }
         blocks.push({type:"divider"});
         blocks.push({type:"section",text:{type:"mrkdwn",text:`✏️  _${pick(MESSAGES_MODIF)}_`}});

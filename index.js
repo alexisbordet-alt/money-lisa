@@ -24,7 +24,7 @@ function chargerState() {
   return {
     modeLabel: "la semaine", objectifDepart: 8073, objectif: 8073,
     buffer: [], milestonesVus: [], tsDejaComptes: [], montantsComptes: {}, salesStats: {}, nbCompteurs: 0,
-    objectifDateDebut: null, objectifNbJours: null,
+    objectifDateDebut: null, objectifNbJours: null, lastFlushTs: null,
   };
 }
 function sauvegarderState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); }
@@ -36,6 +36,7 @@ if (!state.salesStats)       state.salesStats       = {};
 if (state.nbCompteurs  == null) state.nbCompteurs   = 0;
 if (state.objectifDateDebut === undefined) state.objectifDateDebut = null;
 if (state.objectifNbJours   === undefined) state.objectifNbJours   = null;
+if (state.lastFlushTs        === undefined) state.lastFlushTs        = null;
 
 function getDateStr(d = new Date()) { return d.toISOString().split("T")[0]; }
 
@@ -327,18 +328,18 @@ const MESSAGES_CEO = [
 // NB : la part "Philippe / CEO" est volontairement faible, la majorité
 // des slots sont soit neutres soit null (silence) pour éviter la répétition.
 const POOL_BONUS_MILESTONE = [
-  "👑 _Les CEO regardent le compteur._",
-  "👁️ _Philippe a l'œil dessus._",
-  "⚡ _Deal après deal. C'est comme ça qu'on gagne._",
-  "🎯 _Chaque close compte. On lâche rien._",
-  "💪 _Les boss finals closent maintenant._",
-  "🔥 _C'est maintenant que les vrais se révèlent._",
-  "😤 _Le momentum est là. On en profite._",
-  "🚀 _On construit quelque chose ici. Deal après deal._",
-  "💥 _Chaque close c'est de l'histoire._",
-  "🎯 _On reste focus sur l'objectif._",
-  "💪 _Le rythme est là, on ne lâche pas._",
-  "⚡ _Un deal à la fois, l'objectif tombe._",
+  "👑 Les CEO regardent le compteur.",
+  "👁️ Philippe a l'œil dessus.",
+  "⚡ Deal après deal. C'est comme ça qu'on gagne.",
+  "🎯 Chaque close compte. On lâche rien.",
+  "💪 Les boss finals closent maintenant.",
+  "🔥 C'est maintenant que les vrais se révèlent.",
+  "😤 Le momentum est là. On en profite.",
+  "🚀 On construit quelque chose ici. Deal après deal.",
+  "💥 Chaque close c'est de l'histoire.",
+  "🎯 On reste focus sur l'objectif.",
+  "💪 Le rythme est là, on ne lâche pas.",
+  "⚡ Un deal à la fois, l'objectif tombe.",
   null, null, null, null, null, null, null, null, null, null,
   null, null, null, null, null, null, null, null, null, null,
 ];
@@ -379,8 +380,24 @@ const MESSAGES_BOOST_Q = [
   {header:"LES CLOSES DU 🍑 C'EST MAINTENANT — GO GO GO 🚀",texte:"On est en plein milieu d'aprèm. C'est l'heure de closer en série et de creuser l'écart sur l'objectif !"},
   {header:"MILIEU D'APRÈM — QUI CLOSE LE PROCHAIN 🍑 ? 👀🔥",texte:"On est dans le créneau parfait pour les closes du 🍑. L'objectif attend, l'équipe est là. Allez les tigres 🐯"},
 ];
-const MESSAGES_CLOSE_Q = MESSAGES_BOOST_Q;
-function detecterCloseQ(texte) { return /close\s+du\s+[qQ🍑]/i.test(texte)||/[qQ🍑]\s+clos[eé]/i.test(texte); }
+// Messages envoyés quand la cadence entre les compteurs est trop lente.
+// Contexte : trop de temps entre les compteurs → il faut accélérer, closer
+// direct du 🍑 sans laisser le client le temps de réfléchir.
+const MESSAGES_CADENCE_LENTE = [
+  {header:"ON TRAÎNE LÀ — CLOSE DU 🍑 DIRECT 🔥",texte:"Trop de temps entre les deals. On accélère le pas : on close du 🍑, on laisse pas le client partir en réflexion. Go !"},
+  {header:"LA CADENCE EST MOLLE — ON CLOSE DIRECT 😤",texte:"Y a trop d'écart entre les compteurs. Faut closer du 🍑 maintenant, pas de temps mort, pas de « je vais y réfléchir »."},
+  {header:"ON DORT PAS — CLOSE DU 🍑 SANS RÉFLEXION 💪",texte:"Le compteur tourne trop doucement. On met la pression, on close direct, on bloque la réflexion client. Allez les tigres 🐯"},
+  {header:"TROP LENT — ON PASSE EN MODE CLOSE DIRECT 🚀",texte:"Entre deux compteurs c'est le désert. Close du 🍑 immédiat, on laisse pas respirer le prospect. Ça part maintenant !"},
+  {header:"LA MACHINE RALENTIT — ON RELANCE DIRECT 🔥",texte:"Cadence trop molle. Chaque minute sans deal c'est un client qui réfléchit. Close du 🍑 direct, on coupe la réflexion."},
+  {header:"ON ACCÉLÈRE LE PAS — CLOSE DU 🍑 MAINTENANT 🍑💥",texte:"Le rythme est tombé, faut réveiller la bête. Close direct sans temps mort, le client décide pas à notre place."},
+  {header:"CADENCE LENTE DÉTECTÉE — FRAPPE DIRECTE 👀🔥",texte:"Trop de temps depuis le dernier compteur. On close du 🍑 direct, pas de « laisse-moi y repenser ». Go !"},
+];
+// Seuil au-delà duquel on considère que la cadence est trop lente (en ms).
+// 45 minutes entre deux flushes de compteur = cadence molle.
+const SEUIL_CADENCE_LENTE_MS = 45 * 60 * 1000;
+// Plafond : au-delà on considère que c'est une pause légitime (nuit, WE,
+// déjeuner prolongé, etc.) et on n'envoie pas le booster.
+const PLAFOND_CADENCE_LENTE_MS = 4 * 60 * 60 * 1000;
 
 const PRESSION = {
   retard: [
@@ -405,21 +422,43 @@ function getMessagePression(pctJourneeEcoule, pctObjectifFait) {
   const nowMin=h*60+m, finMin=18*60+30, restant=Math.max(0,finMin-nowMin);
   if (pctObjectifFait>=100) return null;
 
-  if (jour===4&&h===17&&m>=30) return pick([
-    {header:"L'AFTERWORK AU 7 DANS UNE HEURE 🍺🔥",texte:"Tout ceux qui closent avant 18h30 méritent leur afterwork au 7. C'est dit, c'est promis. Allez les gars !"},
-    {header:"LE 7 VOUS ATTEND LES GARS 🍺🏆",texte:"Jeudi 17h30. Deal : vous closez, je paye la tournée au 7. C'est maintenant que les boss finals se révèlent 👑"},
-    {header:"DERNIER PUSH DU JEUDI — AFTERWORK OFFERT 🍺🔥",texte:"Chaque close avant 18h30 = un verre au 7. L'afterwork se mérite. Qui est chaud ? 🙋"},
-    {header:"LE 7 OU PAS LE 7 — ÇA SE JOUE MAINTENANT",texte:`${pickPhilippePression()} Jeudi 17h30. Closes en série dans la prochaine heure et l'afterwork au 7 est validé. ALLEZ 💪`},
-  ]);
-  if (jour===5&&h===17&&m>=30) return pick([
-    {header:"C'EST VENDREDI ET L'OBJECTIF NOUS REGARDE 🍺🔥",texte:"Tout ceux qui closent avant 18h30 je leur paye un verre au Brelan ce soir. C'est dit, c'est promis. Allez les gars !"},
-    {header:"LE BRELAN VOUS ATTEND LES GARS 🍺🏆",texte:"Vendredi 17h30. Deal : vous closez, je paye la tournée au Brelan. C'est maintenant que les boss finals se révèlent 👑"},
-    {header:"DERNIER PUSH DU VENDREDI — BRELAN OFFERT 🍺🔥",texte:"Chaque close avant 18h30 = un verre au Brelan. Qui est chaud ? 🙋"},
-  ]);
-  if (jour===5&&h>=14) return pick([
-    {header:"C'EST VENDREDI — LE WEEKEND SE MÉRITE 💪🔥",texte:"Vendredi aprèm et l'objectif est pas encore là. Les cracks closent maintenant. Vous êtes dans quelle catégorie ?"},
-    {header:"LE WEEKEND C'EST POUR LES GENS QUI ONT TOUT DONNÉ 🏆",texte:"Vendredi aprèm. Ceux qui closent avant 18h30 méritent leur weekend. Allez on finit fort !"},
-  ]);
+  // Jeudi 17h30 : on promet le 7 UNIQUEMENT si l'objectif est quasi bouclé.
+  if (jour===4&&h===17&&m>=30) {
+    if (pctObjectifFait>=80) return pick([
+      {header:"LE 7 CE SOIR SE MÉRITE — ON BOUCLE L'OBJECTIF 🍺🔥",texte:`${pctObjectifFait}% jeudi 17h30. Si on close l'objectif dans l'heure, le 7 ce soir est validé. Allez !`},
+      {header:"PLUS QU'UN EFFORT — LE 7 EST EN JEU 🍺💪",texte:`${pctObjectifFait}% à 17h30. L'objectif est à portée. On le boucle, on part au 7. Sinon on reste. C'est simple.`},
+    ]);
+    return pick([
+      {header:"JEUDI 17H30 — L'OBJECTIF EST ENCORE LOIN 😤",texte:`${pctObjectifFait}% seulement. Plus qu'une heure. ${pickPhilippePression()} Tout le monde sur le pont 🔥`},
+      {header:"L'HEURE DU FINISH JEUDI — ON POUSSE",texte:`1h avant fin de journée, ${pctObjectifFait}% au compteur. L'objectif attend. Closes en série maintenant 💪`},
+      {header:"JEUDI FIN DE JOURNÉE — ON NE LÂCHE PAS",texte:`${pctObjectifFait}% à 17h30 jeudi. Chaque close des 60 prochaines minutes compte double 😤`},
+    ]);
+  }
+  // Vendredi 17h30 : on promet le Brelan UNIQUEMENT si l'objectif est tombé.
+  if (jour===5&&h===17&&m>=30) {
+    if (pctObjectifFait>=100) return pick([
+      {header:"OBJECTIF BOUCLÉ — LE BRELAN CE SOIR C'EST VALIDÉ 🍺🏆",texte:"Objectif atteint avant 17h30 vendredi. Le Brelan est pour vous ce soir, vous l'avez mérité 👑"},
+      {header:"LE BRELAN EST À VOUS — OBJECTIF DANS LA POCHE 🍺🎉",texte:"100% vendredi avant 18h. Quelle semaine. Direction le Brelan, vous l'avez gagné 🏆"},
+    ]);
+    if (pctObjectifFait>=85) return pick([
+      {header:"LE BRELAN SE JOUE — UN DERNIER PUSH 🍺💪",texte:`${pctObjectifFait}% à 17h30 vendredi. On est à un cheveu. Si on boucle dans l'heure, le Brelan est validé. Sinon on rentre.`},
+      {header:"DERNIÈRE LIGNE DROITE — LE BRELAN EST EN JEU 🍺🔥",texte:`${pctObjectifFait}% vendredi 17h30. L'objectif est à portée. On le finit, on célèbre. Allez !`},
+    ]);
+    return pick([
+      {header:"VENDREDI 17H30 — L'OBJECTIF N'EST PAS FAIT 😤",texte:`${pctObjectifFait}% en fin de semaine. Plus qu'une heure. ${pickPhilippePression()} On finit le boulot avant de penser au weekend 🔥`},
+      {header:"LA SEMAINE SE TERMINE — ON REMPLIT LE BOULOT",texte:`${pctObjectifFait}% vendredi 17h30. Chaque close compte pour clore proprement la semaine. ALLEZ 💪`},
+    ]);
+  }
+  // Vendredi aprèm : messages de push sans promesse de Brelan/weekend si objectif pas fait.
+  if (jour===5&&h>=14) {
+    if (pctObjectifFait>=100) return pick([
+      {header:"VENDREDI APRÈM — OBJECTIF DÉJÀ BOUCLÉ 🏆",texte:"Vous avez fini l'objectif avant vendredi soir. Gros. Reste à profiter de la fin de journée."},
+    ]);
+    return pick([
+      {header:"C'EST VENDREDI — ON BOUCLE L'OBJECTIF 💪🔥",texte:`${pctObjectifFait}% vendredi aprèm. L'objectif n'est pas fait. Les cracks closent maintenant. Vous êtes dans quelle catégorie ?`},
+      {header:"VENDREDI APRÈM — DERNIERS BATTEMENTS DE LA SEMAINE 🏁",texte:`${pctObjectifFait}% au compteur. L'aprèm décide tout. On finit la semaine proprement, pas à moitié.`},
+    ]);
+  }
   if (jour===1&&h<11&&pctObjectifFait<5) return pick([
     {header:"C'EST LUNDI — QUELQU'UN VA OUVRIR LE BAL ? 😴☕",texte:"La semaine commence. Le compteur attend. Qui est le premier à envoyer de la frappe cette semaine ?"},
     {header:"RÉVEIL LUNDI — ON A UNE SEMAINE À GAGNER 🚀",texte:`Lundi matin. ${pickCEO()} Qui dégaine en premier ?`},
@@ -463,7 +502,7 @@ function getMessagePression(pctJourneeEcoule, pctObjectifFait) {
 // MILESTONES
 // ============================================================
 const MILESTONES = {
-  "25":{emoji:"🔥",header:["25% DANS LA POCHE — BELLE MISE EN ROUTE 🔥","ON EST LANCÉS — VOUS ENVOYEZ DE LA FRAPPE","25% — VOUS ÊTES DES MONSTRES LES GARS 💪","LE WARM-UP EST TERMINÉ, C'EST PARTI 🚀","PREMIER QUART — ON EST EN PLEIN DEDANS","25% — C'EST CARRÉ, ON CONTINUE","VOUS BALANCEZ DE LA FRAPPE PAR ICI 👀","ON EST SOUS TENSION — 25% BOUCLÉS ⚡"],texte:["Un quart de fait et vous envoyez déjà de la frappe. Gardez cette énergie, on lâche rien.",`25% c'est bien. 100% c'est mieux. ${pickCEO()} Vous savez ce qu'il reste à faire, les monstres.`,"Le moteur est chaud et ça se voit. Continuez à envoyer comme ça, on veut voir la suite.","Belle mise en route les gars. J'ai hâte de voir la suite, ça va être une dinguerie.","Quart bouclé. Trois autres à aller chercher. On est ensemble, allez les cracks 🦁","C'est carré pour le premier quart. Vous êtes sur du très lourd.","On sent la dynamique, c'est zinzin. C'est exactement ça qu'on veut voir.","Premier quart dans la poche. Le reste va tomber encore plus vite, vous êtes des machines."]},
+  "25":{emoji:"🔥",header:["25% — LA MACHINE EST LANCÉE 🔥","ON EST LANCÉS — VOUS ENVOYEZ DE LA FRAPPE","25% — VOUS ÊTES DES MONSTRES LES GARS 💪","LE WARM-UP EST TERMINÉ, C'EST PARTI 🚀","PREMIER QUART — ON EST EN PLEIN DEDANS","25% — C'EST CARRÉ, ON CONTINUE","VOUS BALANCEZ DE LA FRAPPE PAR ICI 👀","ON EST SOUS TENSION — 25% BOUCLÉS ⚡"],texte:["Un quart de fait et vous envoyez déjà de la frappe. Gardez cette énergie, on lâche rien.",`25% c'est bien. 100% c'est mieux. ${pickCEO()} Vous savez ce qu'il reste à faire, les monstres.`,"Le moteur est chaud et ça se voit. Continuez à envoyer comme ça, on veut voir la suite.","Belle mise en route les gars. J'ai hâte de voir la suite, ça va être une dinguerie.","Quart bouclé. Trois autres à aller chercher. On est ensemble, allez les cracks 🦁","C'est carré pour le premier quart. Vous êtes sur du très lourd.","On sent la dynamique, c'est zinzin. C'est exactement ça qu'on veut voir.","Premier quart dans la poche. Le reste va tomber encore plus vite, vous êtes des machines."]},
   "50":{emoji:"⚡",header:["MI-CHEMIN — VOUS ÊTES DES MONSTRES ICI 😤","50% ET ÇA FAIT DÉJÀ MAL — VOUS ENVOYEZ DE LA FRAPPE","HALFWAY DONE — VOUS ÊTES DES GOAT 🐐","LA MOITIÉ DANS LA POCHE — C'EST MASTERCLASS","50% — ON EST SOUS TENSION LES GARS ⚡","L'OBJECTIF COMMENCE À FLIPPER 👀","MOITIÉ FAITE — VOUS BALANCEZ DE LA FRAPPE 🔥","50% — C'EST ZINZIN CE QUE VOUS FAITES LÀ"],texte:["La moitié c'est fait. L'autre moitié va tomber encore plus vite, je vous connais les cracks.",`50% bouclé et c'est masterclass. ${pickPhilippe()} Vous ne ralentissez surtout pas.`,"Mi-chemin franchi. Vous êtes sur du très lourd. Le finish est dans le viseur.","Vous avez la dynamique, gardez-la. Vous êtes des machines, tout le monde pousse.",`Moitié faite. ${pickCEO()} Je veux voir la même énergie jusqu'au bout.`,"50% — c'est carré. C'est exactement là où vous deviez être. Direction la lune 🚀","Le momentum est là, c'est zinzin. C'est maintenant qu'on double la cadence.","Halfway — et on sent que le reste va tomber vite. Vous êtes des GOAT ou pas ? 🐐"]},
   "75":{emoji:"💥",header:["TROIS QUARTS BOUCLÉS — LE FINISH EST LÀ 💥","75% — VOUS ÊTES DES TIGRES ICI 🐯","ON SENT LA VICTOIRE — C'EST LA DINGUERIE","LE DERNIER VIRAGE — VOUS ÊTES LES BOSS FINALS 👑","75% — ON EST DANS LE MONEY, FINISSEZ LE BOULOT","PRESQUE AU BOUT — C'EST MASTERCLASS LES GARS","LES DERNIERS MÈTRES — VOUS ÊTES DES MACHINES","75% — DIRECTION L'ASILE TELLEMENT VOUS ÊTES FORTS 😅"],texte:[`Trois quarts bouclés. ${pickPhilippe()} On lâche absolument rien. Le dernier quart va tomber.`,"75% c'est zinzin. Vous êtes des monstres. Maintenant on finit le travail proprement.","On voit la ligne d'arrivée. Vous sprintez, vous êtes des machines, on ne flanche pas.",`Si près du but. ${pickCEO()} C'est maintenant que les GOAT se révèlent 🐐`,"Dernier virage. C'est carré, gardez la tête froide et finissez fort. Come on !","25% restants — c'est presque rien pour des cracks comme vous. Allez les tigres 🐯","Vous avez fait le plus dur. Le reste c'est de l'appétit. Vous êtes sur du très lourd.","75% — j'ai le seum pour les objectifs tellement vous les détruisez 😤🔥"]},
   "100":{emoji:"🏆",header:["C'EST DANS LA BOÎTE — VOUS ÊTES DES GOAT 🐐🏆","OBJECTIF PULVÉRISÉ — VOUS ÊTES LES BOSS FINALS 👑","MISSION ACCOMPLIE — QUE DES MONSTRES ICI 😤","CHAMPAGNE — C'EST LA DINGUERIE TOTALE 🥂🥂","100% — C'EST MASTERCLASS, ON EST ENSEMBLE 🙌","GAME OVER ET C'EST NOUS QUI GAGNONS — TOUJOURS","oulaaaa vous avancez beaucoup trop vite là 😅🔥","DIRECTION L'ASILE TELLEMENT VOUS ÊTES FORTS 😅🏆"],texte:[`Objectif pulvérisé. ${pickCEO()} On célèbre et on repart encore plus fort. 🍾`,"L'objectif est tombé. Vous êtes des monstres. Quelle équipe, quel travail.",`Mission accomplie. C'est carré. ${pickPhilippe()} On lève le verre et on recommence.`,"100% bouclé. Vous êtes des cracks et j'ai le seum pour l'objectif tellement vous l'avez détruit.",`C'est dans la boîte. C'est zinzin ce que vous venez de faire. ${pickCEO()} 🐐`,"Objectif pulvérisé. Vous envoyez de la frappe à un niveau indécent. On célèbre et on repart.","Légendaire. Voilà ce que vous êtes. C'est la maxence totale. Je vous aime les gars 🏆","Game over — et c'est nous qui gagnons. Direction l'asile tellement vous êtes forts 😅🍾"]},
@@ -1077,7 +1116,7 @@ function construireCalcul(deals, ancienObjectif, restant) {
 // ============================================================
 // CONSTRUCTION DU MESSAGE
 // ============================================================
-function construireMessage(deals, ancienObjectif, restant, objectifDepart, milestone, closeQ=false) {
+function construireMessage(deals, ancienObjectif, restant, objectifDepart, milestone, slowCadence=false) {
   const depasse     = restant<0;
   const depasseAff  = Math.abs(restant).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
   const pctObjectif = Math.round((1-Math.max(0,restant)/objectifDepart)*100);
@@ -1093,8 +1132,8 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
   if (milestone) {
     const _bonus1 = getBonusMilestone();
     blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n${milestone.texte}${_bonus1?`\n${_bonus1}`:""}`}});
-  } else if (closeQ) {
-    const msgQ = pick(MESSAGES_CLOSE_Q);
+  } else if (slowCadence) {
+    const msgQ = pick(MESSAGES_CADENCE_LENTE);
     blocks.push({type:"section",text:{type:"mrkdwn",text:`🍑  *${msgQ.header}*\n${msgQ.texte}`}});
   } else if (pression&&!depasse) {
     blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n${typeof pression.texte==="function"?pression.texte():pression.texte}`}});
@@ -1229,7 +1268,7 @@ function formaterTopSales(top, periode, mode) {
     ?`${medals[i]}  *${s.name}* — ${s.mrr.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€ MRR (${s.closes} close${s.closes>1?"s":""})`
     :`${medals[i]}  *${s.name}* — ${s.closes} close${s.closes>1?"s":""} (${s.mrr.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€ MRR)`
   ).join("\n");
-  return `🏆  *TOP SALES — ${periodeLabel.toUpperCase()} (${modeLabel})*\n\n${lignes}\n\n_${pick(MESSAGES_TOP_SALES_FIN)}_`;
+  return `🏆  *TOP SALES — ${periodeLabel.toUpperCase()} (${modeLabel})*\n\n${lignes}\n\n${pick(MESSAGES_TOP_SALES_FIN)}`;
 }
 
 // ============================================================
@@ -1436,8 +1475,7 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
   if (!estEdition&&state.tsDejaComptes.includes(ts)) return;
   if (/^\s*<@[A-Z0-9]+>\s*(?:objectif|obj|add|ajoute|remove|supprime|switch|change|statut|stat|top|reset)/i.test(texte)) return;
 
-  const mrr    = extraireMRR(texte);
-  const closeQ = detecterCloseQ(texte);
+  const mrr = extraireMRR(texte);
 
   if (estEdition) {
     const idx = state.buffer.findIndex(b=>b.ts===ts);
@@ -1500,7 +1538,7 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
   if (!state.salesStats[userId].closes.some(c=>c.ts===ts))
     state.salesStats[userId].closes.push({ts,montant:mrr,date:dateStr,week:weekStr});
 
-  state.buffer.push({user:userName,userId,montant:mrr,leads:extraireTousMRR(texte),ts,closeQ});
+  state.buffer.push({user:userName,userId,montant:mrr,leads:extraireTousMRR(texte),ts});
   sauvegarderState(state);
   console.log(`📥 Buffer : ${state.buffer.length}/3 — ${userName} : ${mrr}€`);
 
@@ -1513,7 +1551,21 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
     const deals=state.buffer.splice(0,3);
     const ancienObjectif=state.objectif;
     const totalMRR=deals.reduce((s,d)=>s+d.montant,0);
-    const hasCloseQ=deals.some(d=>d.closeQ);
+    // Cadence lente : on compare l'écart entre ce flush et le précédent.
+    // Si > seuil ET < plafond (pour exclure nuit/WE/déjeuner), on déclenche
+    // le booster "close du 🍑 direct, pas de réflexion client".
+    const nowMs = Date.now();
+    let slowCadence = false;
+    if (state.lastFlushTs) {
+      const gap = nowMs - state.lastFlushTs;
+      if (gap > SEUIL_CADENCE_LENTE_MS && gap < PLAFOND_CADENCE_LENTE_MS) {
+        // On n'active que pendant les heures de travail (8h-19h, lun-ven)
+        // pour éviter un booster déclenché par un déjeuner long ou une pause.
+        const { h, jour } = getNowParis();
+        if (jour >= 1 && jour <= 5 && h >= 8 && h < 19) slowCadence = true;
+      }
+    }
+    state.lastFlushTs = nowMs;
     state.objectif=ancienObjectif-totalMRR;
     state.buffer=[];
     deals.forEach(d=>{state.tsDejaComptes.push(d.ts);state.montantsComptes[d.ts]=d.montant;});
@@ -1525,7 +1577,7 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
     const milestone = (state.nbCompteurs % 5 === 0)
       ? getMilestoneForce(state.objectifDepart, state.objectif)
       : verifierMilestone(state.objectifDepart, state.objectif);
-    const blocks=construireMessage(deals,ancienObjectif,state.objectif,state.objectifDepart,milestone,hasCloseQ);
+    const blocks=construireMessage(deals,ancienObjectif,state.objectif,state.objectifDepart,milestone,slowCadence);
     await client.chat.postMessage({channel,text:`🚨 COMPTEUR`,blocks});
   }
 }

@@ -24,7 +24,7 @@ function chargerState() {
   return {
     modeLabel: "la semaine", objectifDepart: 8073, objectif: 8073,
     buffer: [], milestonesVus: [], tsDejaComptes: [], montantsComptes: {}, salesStats: {}, nbCompteurs: 0,
-    objectifDateDebut: null, objectifNbJours: null, lastFlushTs: null,
+    objectifDateDebut: null, objectifNbJours: null, lastChannel: null,
   };
 }
 function sauvegarderState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); }
@@ -36,7 +36,7 @@ if (!state.salesStats)       state.salesStats       = {};
 if (state.nbCompteurs  == null) state.nbCompteurs   = 0;
 if (state.objectifDateDebut === undefined) state.objectifDateDebut = null;
 if (state.objectifNbJours   === undefined) state.objectifNbJours   = null;
-if (state.lastFlushTs        === undefined) state.lastFlushTs        = null;
+if (state.lastChannel        === undefined) state.lastChannel        = null;
 
 function getDateStr(d = new Date()) { return d.toISOString().split("T")[0]; }
 
@@ -380,24 +380,18 @@ const MESSAGES_BOOST_Q = [
   {header:"LES CLOSES DU 🍑 C'EST MAINTENANT — GO GO GO 🚀",texte:"On est en plein milieu d'aprèm. C'est l'heure de closer en série et de creuser l'écart sur l'objectif !"},
   {header:"MILIEU D'APRÈM — QUI CLOSE LE PROCHAIN 🍑 ? 👀🔥",texte:"On est dans le créneau parfait pour les closes du 🍑. L'objectif attend, l'équipe est là. Allez les tigres 🐯"},
 ];
-// Messages envoyés quand la cadence entre les compteurs est trop lente.
-// Contexte : trop de temps entre les compteurs → il faut accélérer, closer
-// direct du 🍑 sans laisser le client le temps de réfléchir.
+// Messages du booster "close du 🍑". Envoyés UNIQUEMENT par le planificateur
+// à 16h, un jour ouvré sur deux (lun/mer/ven). Plus de déclenchement sur
+// détection de cadence lente entre flushes.
 const MESSAGES_CADENCE_LENTE = [
-  {header:"ON TRAÎNE LÀ — CLOSE DU 🍑 DIRECT 🔥",texte:"Trop de temps entre les deals. On accélère le pas : on close du 🍑, on laisse pas le client partir en réflexion. Go !"},
-  {header:"LA CADENCE EST MOLLE — ON CLOSE DIRECT 😤",texte:"Y a trop d'écart entre les compteurs. Faut closer du 🍑 maintenant, pas de temps mort, pas de « je vais y réfléchir »."},
-  {header:"ON DORT PAS — CLOSE DU 🍑 SANS RÉFLEXION 💪",texte:"Le compteur tourne trop doucement. On met la pression, on close direct, on bloque la réflexion client. Allez les tigres 🐯"},
-  {header:"TROP LENT — ON PASSE EN MODE CLOSE DIRECT 🚀",texte:"Entre deux compteurs c'est le désert. Close du 🍑 immédiat, on laisse pas respirer le prospect. Ça part maintenant !"},
-  {header:"LA MACHINE RALENTIT — ON RELANCE DIRECT 🔥",texte:"Cadence trop molle. Chaque minute sans deal c'est un client qui réfléchit. Close du 🍑 direct, on coupe la réflexion."},
-  {header:"ON ACCÉLÈRE LE PAS — CLOSE DU 🍑 MAINTENANT 🍑💥",texte:"Le rythme est tombé, faut réveiller la bête. Close direct sans temps mort, le client décide pas à notre place."},
-  {header:"CADENCE LENTE DÉTECTÉE — FRAPPE DIRECTE 👀🔥",texte:"Trop de temps depuis le dernier compteur. On close du 🍑 direct, pas de « laisse-moi y repenser ». Go !"},
+  {header:"16H — ON PASSE EN MODE CLOSE DU 🍑 DIRECT 🔥",texte:"Fin d'aprèm qui approche. On accélère le pas : on close du 🍑, on laisse pas le client partir en réflexion. Go !"},
+  {header:"IL EST 16H — CLOSE DIRECT, PAS DE RÉFLEXION 😤",texte:"2h30 avant la fermeture. Faut closer du 🍑 maintenant, pas de temps mort, pas de « je vais y réfléchir »."},
+  {header:"16H — CLOSE DU 🍑 SANS RÉFLEXION 💪",texte:"On est sur le créneau qui fait la journée. On met la pression, on close direct, on bloque la réflexion client. Allez les tigres 🐯"},
+  {header:"16H — ON PASSE EN MODE CLOSE DIRECT 🚀",texte:"L'heure où les deals se font. Close du 🍑 immédiat, on laisse pas respirer le prospect. Ça part maintenant !"},
+  {header:"16H — ON RELANCE DIRECT 🔥",texte:"Plus le temps passe, plus le client réfléchit. Close du 🍑 direct, on coupe la réflexion avant qu'elle ne démarre."},
+  {header:"16H — ON ACCÉLÈRE LE PAS MAINTENANT 🍑💥",texte:"Faut réveiller la bête sur la fin d'aprèm. Close direct sans temps mort, le client décide pas à notre place."},
+  {header:"16H — FRAPPE DIRECTE SUR LE 🍑 👀🔥",texte:"Le créneau idéal pour closer. On close du 🍑 direct, pas de « laisse-moi y repenser ». Go !"},
 ];
-// Seuil au-delà duquel on considère que la cadence est trop lente (en ms).
-// 45 minutes entre deux flushes de compteur = cadence molle.
-const SEUIL_CADENCE_LENTE_MS = 45 * 60 * 1000;
-// Plafond : au-delà on considère que c'est une pause légitime (nuit, WE,
-// déjeuner prolongé, etc.) et on n'envoie pas le booster.
-const PLAFOND_CADENCE_LENTE_MS = 4 * 60 * 60 * 1000;
 
 const PRESSION = {
   retard: [
@@ -1123,15 +1117,14 @@ function construireCalcul(deals, ancienObjectif, restant) {
 //     → pas de pression, pas de phrase décorative, rien.
 //
 //   FLUX B — COMPTEUR AVEC MILESTONE (tous les 5 flushes OU
-//             quand un palier 25/50/75/100 est franchi OU quand
-//             la cadence est trop lente → booster close 🍑)
-//     → titre + bloc milestone/booster + divider + calcul + barre.
+//             quand un palier 25/50/75/100 est franchi)
+//     → titre + bloc milestone + divider + calcul + barre.
 //
-// Un seul "if milestone/slowCadence". Si les deux sont null, on
-// tombe automatiquement dans le FLUX A. Interdiction d'ajouter
-// un bloc décoratif en dehors de ce switch.
+// Le booster 🍑 "cadence lente" n'est PLUS couplé au flush de
+// compteur : il est désormais envoyé par le planificateur 16h
+// lun/mer/ven (voir demarrerBoosterCadence16h).
 // ============================================================
-function construireMessage(deals, ancienObjectif, restant, objectifDepart, milestone, slowCadence=false) {
+function construireMessage(deals, ancienObjectif, restant, objectifDepart, milestone) {
   const depasse     = restant<0;
   const depasseAff  = Math.abs(restant).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
   const calcul      = construireCalcul(deals, ancienObjectif, restant);
@@ -1140,18 +1133,12 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
   // ── 1. TITRE (toujours) ──────────────────────────────────
   blocks.push({type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}});
 
-  // ── 2. BLOC DÉCORATIF (FLUX B uniquement) ────────────────
-  // milestone a priorité sur slowCadence (si les deux arrivent
-  // le même flush, on montre le milestone).
+  // ── 2. BLOC MILESTONE (FLUX B uniquement) ────────────────
   if (milestone) {
     const _bonus1 = getBonusMilestone();
     blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n${milestone.texte}${_bonus1?`\n${_bonus1}`:""}`}});
-  } else if (slowCadence) {
-    const msgQ = pick(MESSAGES_CADENCE_LENTE);
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`🍑  *${msgQ.header}*\n${msgQ.texte}`}});
   }
-  // ⚠️ PAS de "else" : en FLUX A on n'ajoute AUCUN bloc décoratif
-  // (pas de pression, pas de phrase d'ambiance).
+  // ⚠️ PAS de "else" : en FLUX A on n'ajoute AUCUN bloc décoratif.
 
   blocks.push({type:"divider"});
 
@@ -1560,33 +1547,21 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
     const deals=state.buffer.splice(0,3);
     const ancienObjectif=state.objectif;
     const totalMRR=deals.reduce((s,d)=>s+d.montant,0);
-    // Cadence lente : on compare l'écart entre ce flush et le précédent.
-    // Si > seuil ET < plafond (pour exclure nuit/WE/déjeuner), on déclenche
-    // le booster "close du 🍑 direct, pas de réflexion client".
-    const nowMs = Date.now();
-    let slowCadence = false;
-    if (state.lastFlushTs) {
-      const gap = nowMs - state.lastFlushTs;
-      if (gap > SEUIL_CADENCE_LENTE_MS && gap < PLAFOND_CADENCE_LENTE_MS) {
-        // On n'active que pendant les heures de travail (8h-19h, lun-ven)
-        // pour éviter un booster déclenché par un déjeuner long ou une pause.
-        const { h, jour } = getNowParis();
-        if (jour >= 1 && jour <= 5 && h >= 8 && h < 19) slowCadence = true;
-      }
-    }
-    state.lastFlushTs = nowMs;
     state.objectif=ancienObjectif-totalMRR;
     state.buffer=[];
     deals.forEach(d=>{state.tsDejaComptes.push(d.ts);state.montantsComptes[d.ts]=d.montant;});
     if (state.tsDejaComptes.length>200) state.tsDejaComptes=state.tsDejaComptes.slice(-200);
     state.nbCompteurs = (state.nbCompteurs || 0) + 1;
+    // On mémorise le dernier channel où un close a été posté, pour que le
+    // booster planifié 16h sache où aller.
+    state.lastChannel = channel;
     sauvegarderState(state);
     // Milestone forcé uniquement tous les 5 compteurs (au lieu de 3)
     // pour éviter la saturation de messages.
     const milestone = (state.nbCompteurs % 5 === 0)
       ? getMilestoneForce(state.objectifDepart, state.objectif)
       : verifierMilestone(state.objectifDepart, state.objectif);
-    const blocks=construireMessage(deals,ancienObjectif,state.objectif,state.objectifDepart,milestone,slowCadence);
+    const blocks=construireMessage(deals,ancienObjectif,state.objectif,state.objectifDepart,milestone);
     await client.chat.postMessage({channel,text:`🚨 COMPTEUR`,blocks});
   }
 }
@@ -1777,6 +1752,56 @@ app.message(async ({message,client}) => {
 });
 
 // ============================================================
+// PLANIFICATEUR BOOSTER 🍑 — 16h les lun/mer/ven
+// ------------------------------------------------------------
+// Seul message automatique actif. Fire une fois par jour autorisé,
+// à 16h00 Paris. On envoie dans le dernier channel où un close a
+// été posté (state.lastChannel) pour coller au canal actif.
+// ============================================================
+function demarrerBoosterCadence16h(client) {
+  setInterval(async () => {
+    try {
+      const { h, m, jour } = getNowParis();
+      // Lun/Mer/Ven uniquement (1 jour ouvré sur 2)
+      if (jour !== 1 && jour !== 3 && jour !== 5) return;
+      if (h !== 16 || m !== 0) return;
+
+      // Garde anti-doublon : on ne fire qu'une fois par jour civil Paris.
+      const todayKey = new Intl.DateTimeFormat("fr-CA", {
+        timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit"
+      }).format(new Date());
+      if (state.lastBoosterDate === todayKey) return;
+
+      // Pas de channel mémorisé → on ne sait pas où poster, on skip.
+      if (!state.lastChannel) {
+        console.log("🍑 Booster 16h : pas de lastChannel, skip");
+        state.lastBoosterDate = todayKey;
+        sauvegarderState(state);
+        return;
+      }
+
+      const msg = pick(MESSAGES_CADENCE_LENTE);
+      await client.chat.postMessage({
+        channel: state.lastChannel,
+        text: `🍑 ${msg.header}`,
+        blocks: [
+          { type: "section", text: { type: "mrkdwn", text: `🍑  *${msg.header}*\n${msg.texte}` } },
+          { type: "divider" },
+          { type: "section", text: { type: "mrkdwn", text: `*${Math.max(0, state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* restants sur *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  _(${state.modeLabel})_` } },
+          { type: "section", text: { type: "mrkdwn", text: barreProgression(state.objectifDepart, state.objectif) } },
+        ],
+      });
+
+      state.lastBoosterDate = todayKey;
+      sauvegarderState(state);
+      console.log(`🍑 Booster 16h envoyé (${todayKey})`);
+    } catch (e) {
+      console.log("Booster 16h erreur :", e.message);
+    }
+  }, 60 * 1000);
+}
+
+// ============================================================
 // ÉDITÉS ET SUPPRIMÉS
 // ============================================================
 app.event("message", async ({event,client}) => {
@@ -1802,13 +1827,12 @@ app.event("message", async ({event,client}) => {
       console.log(`📊 Objectif  : ${state.objectif}€ / ${state.objectifDepart}€`);
       console.log(`📅 Période   : ${state.modeLabel}`);
       console.log(`📥 Buffer    : ${state.buffer.length}/3`);
-      // ── Planificateur désactivé sur demande ─────────────────────
-      // Plus aucun message planifié (milestone quotidien 16h, relances
-      // 9h/11h30/14h/17h30/18h30). Le bot ne réagit plus qu'aux closes
-      // postées par les commerciaux. Pour réactiver : décommenter la
-      // ligne ci-dessous.
-      // demarrerPlanificateur(app.client);
-      console.log("🕒 Planificateur : DÉSACTIVÉ (aucun message automatique)");
+      // ── Planificateur minimal ──────────────────────────────────
+      // Ancien planificateur complet (milestone quotidien 16h +
+      // relances 9h/11h30/14h/17h30/18h30) : DÉSACTIVÉ.
+      // Seul actif : le booster 🍑 à 16h les lun/mer/ven.
+      demarrerBoosterCadence16h(app.client);
+      console.log("🕒 Planificateur : booster 🍑 16h lun/mer/ven uniquement");
     } catch(e) {
       console.error("❌ Erreur, nouvelle tentative dans 5s...", e.message);
       setTimeout(demarrer, 5000);

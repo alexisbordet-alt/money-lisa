@@ -1115,29 +1115,43 @@ function construireCalcul(deals, ancienObjectif, restant) {
 
 // ============================================================
 // CONSTRUCTION DU MESSAGE
+// ------------------------------------------------------------
+// Deux flux STRICTEMENT séparés :
+//
+//   FLUX A — COMPTEUR NU (cas par défaut, 4 flushes sur 5)
+//     → titre + divider + calcul + barre. RIEN d'autre.
+//     → pas de pression, pas de phrase décorative, rien.
+//
+//   FLUX B — COMPTEUR AVEC MILESTONE (tous les 5 flushes OU
+//             quand un palier 25/50/75/100 est franchi OU quand
+//             la cadence est trop lente → booster close 🍑)
+//     → titre + bloc milestone/booster + divider + calcul + barre.
+//
+// Un seul "if milestone/slowCadence". Si les deux sont null, on
+// tombe automatiquement dans le FLUX A. Interdiction d'ajouter
+// un bloc décoratif en dehors de ce switch.
 // ============================================================
 function construireMessage(deals, ancienObjectif, restant, objectifDepart, milestone, slowCadence=false) {
   const depasse     = restant<0;
   const depasseAff  = Math.abs(restant).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
-  const pctObjectif = Math.round((1-Math.max(0,restant)/objectifDepart)*100);
-  const temps       = getTempsRestant();
-  const pression    = getMessagePression(temps.pctJourneeEcoule, pctObjectif);
   const calcul      = construireCalcul(deals, ancienObjectif, restant);
   const blocks      = [];
 
-  // ── 1. TITRE ─────────────────────────────────────────────
+  // ── 1. TITRE (toujours) ──────────────────────────────────
   blocks.push({type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}});
 
-  // ── 2. MILESTONE / PRESSION / CLOSE Q sous le titre ──────
+  // ── 2. BLOC DÉCORATIF (FLUX B uniquement) ────────────────
+  // milestone a priorité sur slowCadence (si les deux arrivent
+  // le même flush, on montre le milestone).
   if (milestone) {
     const _bonus1 = getBonusMilestone();
     blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n${milestone.texte}${_bonus1?`\n${_bonus1}`:""}`}});
   } else if (slowCadence) {
     const msgQ = pick(MESSAGES_CADENCE_LENTE);
     blocks.push({type:"section",text:{type:"mrkdwn",text:`🍑  *${msgQ.header}*\n${msgQ.texte}`}});
-  } else if (pression&&!depasse) {
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n${typeof pression.texte==="function"?pression.texte():pression.texte}`}});
   }
+  // ⚠️ PAS de "else" : en FLUX A on n'ajoute AUCUN bloc décoratif
+  // (pas de pression, pas de phrase d'ambiance).
 
   blocks.push({type:"divider"});
 
@@ -1182,10 +1196,10 @@ async function envoyerStatut(channel, client) {
     sauvegarderState(state);
   }
 
-  const pctObjectif = Math.round((1-Math.max(0,state.objectif)/state.objectifDepart)*100);
-  const temps       = getTempsRestant();
-  const pression    = getMessagePression(temps.pctJourneeEcoule, pctObjectif);
-  const milestone   = verifierMilestone(state.objectifDepart, state.objectif);
+  // Statut : on n'affiche QUE le palier franchi (25/50/75/100) s'il
+  // y en a un. Pas de pression, pas de décoration d'ambiance — sinon
+  // le /statut ressemble à un milestone à chaque appel.
+  const milestone = verifierMilestone(state.objectifDepart, state.objectif);
 
   const calcul = mrrBuffer>0
     ? `*${ancienObjectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  ${bufferSnapshot.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€`).join("  ")}  =  *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`
@@ -1196,12 +1210,10 @@ async function envoyerStatut(channel, client) {
   // ── 1. TITRE ─────────────────────────────────────────────
   blocks.push({type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}});
 
-  // ── 2. MILESTONE ou PRESSION sous le titre ───────────────
+  // ── 2. MILESTONE uniquement (pas de pression) ────────────
   if (milestone) {
     const _bonus2 = getBonusMilestone();
     blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n${milestone.texte}${_bonus2?`\n${_bonus2}`:""}`}});
-  } else if (pression) {
-    blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n${typeof pression.texte==="function"?pression.texte():pression.texte}`}});
   }
 
   blocks.push({type:"divider"});
@@ -1503,18 +1515,15 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
           if (c) { c.montant = mrr; break; }
         }
         sauvegarderState(state);
+        // Édition : on n'affiche QUE le palier franchi s'il y en a un.
+        // Pas de pression — l'édition n'est pas un flush de compteur.
         const milestone = verifierMilestone(state.objectifDepart, state.objectif);
-        const pctObjectif = Math.round((1-Math.max(0,state.objectif)/state.objectifDepart)*100);
-        const temps = getTempsRestant();
-        const pression = getMessagePression(temps.pctJourneeEcoule, pctObjectif);
         const calcul = `*${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  →  *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`;
         const blocks = [];
         blocks.push({type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}});
         if (milestone) {
           const _bonus3 = getBonusMilestone();
           blocks.push({type:"section",text:{type:"mrkdwn",text:`${milestone.emoji}  *${milestone.header}*  ${milestone.emoji}\n${milestone.texte}${_bonus3?`\n${_bonus3}`:""}`}});
-        } else if (pression) {
-          blocks.push({type:"section",text:{type:"mrkdwn",text:`⚡  *${pression.header}*\n${typeof pression.texte==="function"?pression.texte():pression.texte}`}});
         }
         blocks.push({type:"divider"});
         blocks.push({type:"section",text:{type:"mrkdwn",text:`✏️  _${pick(MESSAGES_MODIF)}_`}});

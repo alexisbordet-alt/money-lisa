@@ -321,7 +321,7 @@ const MESSAGES_CEO = [
   "Ce genre de performance ça rend Quitterie heureuse — continuez comme ça 🙌",
   "Emmanuelle et Quitterie ont les yeux sur le compteur — montrez-leur ce que vous valez 💪",
   "Les CEO regardent et elles aiment ce qu'elles voient 👑🔥",
-  "Quitterie va kiffer le compte rendu de cette journée, vous êtes des monstres 😤",
+  "Quitterie va kiffer le compte rendu de cette journée, bravo la team 😤",
 ];
 
 // Pool bonus milestone — tout mélangé, les null = silence
@@ -375,10 +375,10 @@ const MESSAGES_BOOST_Q = [
   {header:"ALLEZ LES GARS — C'EST L'HEURE DES CLOSES DU 🍑 🔥",texte:"On est en plein milieu d'aprèm et l'objectif nous attend. Chaque close du 🍑 compte. Qui balance le prochain ?"},
   {header:"BOOST DU 🍑 — ON ENVOIE UN MAX MAINTENANT 💪",texte:"C'est l'heure de closer des 🍑 à la chaîne les gars. L'objectif se rapproche deal par deal. Allez !"},
   {header:"MILIEU D'APRÈM — C'EST LE MOMENT DES CLOSES DU 🍑 😤",texte:"Les closes du 🍑 de l'après-midi c'est maintenant. Tout le monde sur le pont, on envoie la frappe !"},
-  {header:"L'HEURE DU 🍑 A SONNÉ — ON ENVOIE 🔥",texte:"14h-15h c'est le moment parfait pour closer des 🍑. Vous êtes des monstres, montrez-le à l'objectif !"},
+  {header:"L'HEURE DU 🍑 A SONNÉ — ON ENVOIE 🔥",texte:"14h-15h c'est le moment parfait pour closer des 🍑. La team est prête, allez on envoie ensemble !"},
   {header:"CLOSE DU 🍑 TIME — TOUT LE MONDE EN MODE BEAST 🍑💥",texte:"On est en pleine après-midi et les closes du 🍑 vont faire la différence. Qui est le premier à en closer un ?"},
   {header:"LES CLOSES DU 🍑 C'EST MAINTENANT — GO GO GO 🚀",texte:"On est en plein milieu d'aprèm. C'est l'heure de closer en série et de creuser l'écart sur l'objectif !"},
-  {header:"MILIEU D'APRÈM — QUI CLOSE LE PROCHAIN 🍑 ? 👀🔥",texte:"On est dans le créneau parfait pour les closes du 🍑. L'objectif attend, l'équipe est là. Allez les tigres 🐯"},
+  {header:"MILIEU D'APRÈM — QUI CLOSE LE PROCHAIN 🍑 ? 👀🔥",texte:"On est dans le créneau parfait pour les closes du 🍑. L'objectif attend, la team est là. Allez les boss 🔥"},
 ];
 // Messages du booster "close du 🍑". Envoyés UNIQUEMENT par le planificateur
 // à 16h, un jour ouvré sur deux (lun/mer/ven). Plus de déclenchement sur
@@ -386,7 +386,7 @@ const MESSAGES_BOOST_Q = [
 const MESSAGES_CADENCE_LENTE = [
   {header:"16H — ON PASSE EN MODE CLOSE DU 🍑 DIRECT 🔥",texte:"Fin d'aprèm qui approche. On accélère le pas : on close du 🍑, on laisse pas le client partir en réflexion. Go !"},
   {header:"IL EST 16H — CLOSE DIRECT, PAS DE RÉFLEXION 😤",texte:"2h30 avant la fermeture. Faut closer du 🍑 maintenant, pas de temps mort, pas de « je vais y réfléchir »."},
-  {header:"16H — CLOSE DU 🍑 SANS RÉFLEXION 💪",texte:"On est sur le créneau qui fait la journée. On met la pression, on close direct, on bloque la réflexion client. Allez les tigres 🐯"},
+  {header:"16H — CLOSE DU 🍑 SANS RÉFLEXION 💪",texte:"On est sur le créneau qui fait la journée. On met la pression, on close direct, on bloque la réflexion client. Allez la team 🔥"},
   {header:"16H — ON PASSE EN MODE CLOSE DIRECT 🚀",texte:"L'heure où les deals se font. Close du 🍑 immédiat, on laisse pas respirer le prospect. Ça part maintenant !"},
   {header:"16H — ON RELANCE DIRECT 🔥",texte:"Plus le temps passe, plus le client réfléchit. Close du 🍑 direct, on coupe la réflexion avant qu'elle ne démarre."},
   {header:"16H — ON ACCÉLÈRE LE PAS MAINTENANT 🍑💥",texte:"Faut réveiller la bête sur la fin d'aprèm. Close direct sans temps mort, le client décide pas à notre place."},
@@ -407,7 +407,7 @@ const PRESSION = {
   urgence: [
     {header:"30 MINUTES — TOUT LE MONDE SUR LE PONT 🚨🔥",texte:"30 minutes. C'est court mais vous êtes des machines. On close tout ce qui bouge. ALLEZ !"},
     {header:"C'EST LA DERNIÈRE LIGNE DROITE 😤💥",texte:"Plus que 30 minutes. Chaque deal compte. Vous êtes des GOAT, prouvez-le !"},
-    {header:"30 MIN — C'EST MAINTENANT QU'ON ENVOIE LA FRAPPE 🔥",texte:()=>`Dernières 30 minutes. ${pickPhilippePression()} Allez les tigres 🐯`},
+    {header:"30 MIN — C'EST MAINTENANT QU'ON ENVOIE LA FRAPPE 🔥",texte:()=>`Dernières 30 minutes. ${pickPhilippePression()} Allez la team 🔥`},
   ],
 };
 
@@ -459,7 +459,7 @@ function getMessagePression(pctJourneeEcoule, pctObjectifFait) {
   ]);
   if (h<11&&pctObjectifFait<10) return pick([
     {header:"☕ ON DÉMARRE DOUCEMENT LÀ LES GARS",texte:"Le café c'est bon mais les deals c'est mieux. Qui est chaud pour ouvrir le score ce matin ?"},
-    {header:"BONJOUR LES MONSTRES — L'OBJECTIF VOUS ATTEND ☕🔥",texte:`Bonne journée les gars. ${pickCEO()} Qui balance le premier deal ?`},
+    {header:"BONJOUR LA TEAM — L'OBJECTIF VOUS ATTEND ☕🔥",texte:`Bonne journée les gars. ${pickCEO()} Qui balance le premier deal ?`},
   ]);
   if (h===11&&pctObjectifFait<25) return pick([
     {header:"11H ET ON A ENCORE TOUT À FAIRE 👀🔥",texte:"On est à 11h et le compteur est pas encore chaud. C'est maintenant qu'on envoie de la frappe !"},
@@ -496,20 +496,20 @@ function getMessagePression(pctJourneeEcoule, pctObjectifFait) {
 // MILESTONES
 // ============================================================
 const MILESTONES = {
-  "25":{emoji:"🔥",header:["25% — LA MACHINE EST LANCÉE 🔥","ON EST LANCÉS — VOUS ENVOYEZ DE LA FRAPPE","25% — VOUS ÊTES DES MONSTRES LES GARS 💪","LE WARM-UP EST TERMINÉ, C'EST PARTI 🚀","PREMIER QUART — ON EST EN PLEIN DEDANS","25% — C'EST CARRÉ, ON CONTINUE","VOUS BALANCEZ DE LA FRAPPE PAR ICI 👀","ON EST SOUS TENSION — 25% BOUCLÉS ⚡"],texte:["Un quart de fait et vous envoyez déjà de la frappe. Gardez cette énergie, on lâche rien.",`25% c'est bien. 100% c'est mieux. ${pickCEO()} Vous savez ce qu'il reste à faire, les monstres.`,"Le moteur est chaud et ça se voit. Continuez à envoyer comme ça, on veut voir la suite.","Belle mise en route les gars. J'ai hâte de voir la suite, ça va être une dinguerie.","Quart bouclé. Trois autres à aller chercher. On est ensemble, allez les cracks 🦁","C'est carré pour le premier quart. Vous êtes sur du très lourd.","On sent la dynamique, c'est zinzin. C'est exactement ça qu'on veut voir.","Premier quart dans la poche. Le reste va tomber encore plus vite, vous êtes des machines."]},
-  "50":{emoji:"⚡",header:["MI-CHEMIN — VOUS ÊTES DES MONSTRES ICI 😤","50% ET ÇA FAIT DÉJÀ MAL — VOUS ENVOYEZ DE LA FRAPPE","HALFWAY DONE — VOUS ÊTES DES GOAT 🐐","LA MOITIÉ DANS LA POCHE — C'EST MASTERCLASS","50% — ON EST SOUS TENSION LES GARS ⚡","L'OBJECTIF COMMENCE À FLIPPER 👀","MOITIÉ FAITE — VOUS BALANCEZ DE LA FRAPPE 🔥","50% — C'EST ZINZIN CE QUE VOUS FAITES LÀ"],texte:["La moitié c'est fait. L'autre moitié va tomber encore plus vite, je vous connais les cracks.",`50% bouclé et c'est masterclass. ${pickPhilippe()} Vous ne ralentissez surtout pas.`,"Mi-chemin franchi. Vous êtes sur du très lourd. Le finish est dans le viseur.","Vous avez la dynamique, gardez-la. Vous êtes des machines, tout le monde pousse.",`Moitié faite. ${pickCEO()} Je veux voir la même énergie jusqu'au bout.`,"50% — c'est carré. C'est exactement là où vous deviez être. Direction la lune 🚀","Le momentum est là, c'est zinzin. C'est maintenant qu'on double la cadence.","Halfway — et on sent que le reste va tomber vite. Vous êtes des GOAT ou pas ? 🐐"]},
-  "75":{emoji:"💥",header:["TROIS QUARTS BOUCLÉS — LE FINISH EST LÀ 💥","75% — VOUS ÊTES DES TIGRES ICI 🐯","ON SENT LA VICTOIRE — C'EST LA DINGUERIE","LE DERNIER VIRAGE — VOUS ÊTES LES BOSS FINALS 👑","75% — ON EST DANS LE MONEY, FINISSEZ LE BOULOT","PRESQUE AU BOUT — C'EST MASTERCLASS LES GARS","LES DERNIERS MÈTRES — VOUS ÊTES DES MACHINES","75% — DIRECTION L'ASILE TELLEMENT VOUS ÊTES FORTS 😅"],texte:[`Trois quarts bouclés. ${pickPhilippe()} On lâche absolument rien. Le dernier quart va tomber.`,"75% c'est zinzin. Vous êtes des monstres. Maintenant on finit le travail proprement.","On voit la ligne d'arrivée. Vous sprintez, vous êtes des machines, on ne flanche pas.",`Si près du but. ${pickCEO()} C'est maintenant que les GOAT se révèlent 🐐`,"Dernier virage. C'est carré, gardez la tête froide et finissez fort. Come on !","25% restants — c'est presque rien pour des cracks comme vous. Allez les tigres 🐯","Vous avez fait le plus dur. Le reste c'est de l'appétit. Vous êtes sur du très lourd.","75% — j'ai le seum pour les objectifs tellement vous les détruisez 😤🔥"]},
-  "100":{emoji:"🏆",header:["C'EST DANS LA BOÎTE — VOUS ÊTES DES GOAT 🐐🏆","OBJECTIF PULVÉRISÉ — VOUS ÊTES LES BOSS FINALS 👑","MISSION ACCOMPLIE — QUE DES MONSTRES ICI 😤","CHAMPAGNE — C'EST LA DINGUERIE TOTALE 🥂🥂","100% — C'EST MASTERCLASS, ON EST ENSEMBLE 🙌","GAME OVER ET C'EST NOUS QUI GAGNONS — TOUJOURS","oulaaaa vous avancez beaucoup trop vite là 😅🔥","DIRECTION L'ASILE TELLEMENT VOUS ÊTES FORTS 😅🏆"],texte:[`Objectif pulvérisé. ${pickCEO()} On célèbre et on repart encore plus fort. 🍾`,"L'objectif est tombé. Vous êtes des monstres. Quelle équipe, quel travail.",`Mission accomplie. C'est carré. ${pickPhilippe()} On lève le verre et on recommence.`,"100% bouclé. Vous êtes des cracks et j'ai le seum pour l'objectif tellement vous l'avez détruit.",`C'est dans la boîte. C'est zinzin ce que vous venez de faire. ${pickCEO()} 🐐`,"Objectif pulvérisé. Vous envoyez de la frappe à un niveau indécent. On célèbre et on repart.","Légendaire. Voilà ce que vous êtes. C'est la maxence totale. Je vous aime les gars 🏆","Game over — et c'est nous qui gagnons. Direction l'asile tellement vous êtes forts 😅🍾"]},
+  "25":{emoji:"🔥",header:["25% — LA MACHINE EST LANCÉE, ÇA DÉCOIFFE 🔥","ON EST LANCÉS — CETTE TEAM ENVOIE DE LA FRAPPE 💪","25% — QUELLE TEAM, QUELLE ÉNERGIE 💪","LE WARM-UP EST TERMINÉ, C'EST PARTI 🚀","PREMIER QUART DÉJÀ PLIÉ — BRAVO LA TEAM 🏆","25% — C'EST DU TRAVAIL DE BOSS, ON CONTINUE","LA TEAM BALANCE DE LA FRAPPE PAR ICI 👀🔥","25% BOUCLÉS — QUELLE BELLE MISE EN ROUTE ⚡"],texte:[`Un quart de fait et la team envoie déjà du lourd. Gardez cette énergie, c'est exactement ce qu'on voulait voir 🙌`,`25% déjà dans la poche — bravo la team. ${pickCEO()} Cette cadence sur 4, l'objectif va tomber tranquille.`,"Le moteur est chaud et ça se voit. Chaque close compte, et vous en envoyez. On est très fiers 💪","Belle mise en route la team. J'ai hâte de voir la suite, ça sent la dinguerie 🔥","Quart bouclé, ensemble, et c'est que le début. On est fiers, allez les boss 🦁","C'est carré pour le premier quart. Cette team est sur du très lourd, bravo 👑","On sent la dynamique, c'est zinzin. C'est exactement ça qu'on veut voir, continuez 🚀","Premier quart dans la poche. Le reste va tomber encore plus vite, cette team est une machine 💥"]},
+  "50":{emoji:"⚡",header:["MI-CHEMIN — QUELLE TEAM, QUEL NIVEAU 😤🔥","50% ET ÇA FAIT DÉJÀ MAL — CETTE TEAM ENVOIE","HALFWAY DONE — LA TEAM EST EN MODE GOAT 🐐","LA MOITIÉ DANS LA POCHE — C'EST MASTERCLASS 🏆","50% — BRAVO LA TEAM, ON EST FIERS ⚡","L'OBJECTIF COMMENCE À FLIPPER DEVANT VOUS 👀","MOITIÉ FAITE — LA TEAM BALANCE DE LA FRAPPE 🔥","50% — C'EST ZINZIN CE QUE VOUS FAITES LÀ 💪"],texte:[`La moitié c'est fait, et de belle manière. L'autre moitié va tomber encore plus vite, on connait cette team 🙌`,`50% bouclé et c'est masterclass. ${pickPhilippe()} Cette cadence est parfaite, on la garde jusqu'au bout.`,"Mi-chemin franchi avec le sourire. La team est sur du très lourd, le finish est dans le viseur 🎯","La dynamique est là, bravo les boss. Tout le monde pousse dans le même sens, ça se voit 💪",`Moitié faite avec la manière. ${pickCEO()} Cette même énergie jusqu'au bout et c'est parfait.`,"50% — c'est carré. C'est exactement là où la team devait être. Direction la lune 🚀","Le momentum est là, c'est zinzin. C'est maintenant qu'on accélère ensemble 🔥","Halfway — et on sent que le reste va tomber vite. Cette team est en mode GOAT 🐐"]},
+  "75":{emoji:"💥",header:["TROIS QUARTS BOUCLÉS — LE FINISH EST LÀ 💥","75% — LA TEAM EST EN TRAIN DE LE FAIRE 🔥","ON SENT LA VICTOIRE — C'EST LA DINGUERIE ✨","LE DERNIER VIRAGE — LA TEAM EST EN MODE BOSS FINAL 👑","75% — ON EST DANS LE MONEY, ON FINIT ENSEMBLE","PRESQUE AU BOUT — C'EST MASTERCLASS LA TEAM 🏆","LES DERNIERS MÈTRES — CETTE TEAM EST UNE MACHINE 💪","75% — BRAVO LES BOSS, ON LÂCHE RIEN 😅🔥"],texte:[`Trois quarts bouclés. ${pickPhilippe()} On lâche absolument rien, le dernier quart va tomber avec la manière.`,"75% c'est zinzin. Cette team est incroyable. Maintenant on finit le travail proprement, ensemble 🙌","On voit la ligne d'arrivée. La team sprinte, ensemble, et on ne flanche pas. Bravo 💪",`Si près du but. ${pickCEO()} C'est maintenant que la team donne tout — et elle le fait déjà 🐐`,"Dernier virage. C'est carré, on garde la tête froide et on finit fort. Come on la team !","25% restants — c'est presque rien pour des boss comme vous. Allez, ensemble, on y va 🔥","Vous avez fait le plus dur, bravo. Le reste c'est de l'appétit pour cette team 💥","75% — j'ai le seum pour les objectifs tellement cette team les détruit 😤🔥"]},
+  "100":{emoji:"🏆",header:["C'EST DANS LA BOÎTE — QUELLE TEAM, QUEL TRAVAIL 🐐🏆","OBJECTIF PULVÉRISÉ — LA TEAM EST EN MODE BOSS FINAL 👑","MISSION ACCOMPLIE — BRAVO LA TEAM 😤🏆","CHAMPAGNE — C'EST LA DINGUERIE TOTALE 🥂🥂","100% — C'EST MASTERCLASS, ON EST ENSEMBLE 🙌","GAME OVER ET C'EST CETTE TEAM QUI GAGNE — TOUJOURS 🏆","oulaaaa quelle semaine, quelle team 😅🔥","BRAVO LES BOSS — C'EST LÉGENDAIRE 👑🏆"],texte:[`Objectif pulvérisé. ${pickCEO()} On célèbre cette team, et on repart encore plus fort 🍾`,"L'objectif est tombé. Quelle team, quel travail, quelle semaine. On est hyper fiers 🙌",`Mission accomplie. C'est carré, c'est collectif, c'est beau. ${pickPhilippe()} On lève le verre et on recommence 🥂`,"100% bouclé. Cette team est incroyable, et j'ai le seum pour l'objectif tellement vous l'avez détruit 😤","C'est dans la boîte. C'est zinzin ce que cette team vient de faire, ensemble 🐐",`${pickCEO()} Objectif pulvérisé. La team envoie de la frappe à un niveau indécent. On célèbre et on repart 🚀`,"Légendaire. Voilà ce que cette team est. C'est la maxence totale. Je vous aime les boss 🏆","Game over — et c'est cette team qui gagne. Bravo à chacun, on est une famille 🍾"]},
 };
 
 const MESSAGES_DEPASSEMENT = [
   {header:"oulaaaa vous avancez BEAUCOUP trop vite 😅🔥",texte:`Calma calma les gars, vous avez DÉPASSÉ l'objectif. ${pickCEO()} On fixe un nouvel objectif ?`},
   {header:"STOP STOP STOP — L'OBJECTIF EST DÉPASSÉ 🚨😅",texte:"Direction l'asile tellement vous êtes forts. J'avais pas prévu ça mais je suis pas contre 😤"},
-  {header:"oulaaaa ça déborde de partout 🌊💰",texte:"Vous êtes des tigres. L'objectif ? Dépassé. Le plafond ? Inexistant. Calma calma mais continuez 🐯"},
+  {header:"oulaaaa ça déborde de partout 🌊💰",texte:"Cette team est en mode boss. L'objectif ? Dépassé. Le plafond ? Inexistant. Bravo, on continue 🔥"},
   {header:"VOUS ÊTES DES GOAT C'EST OFFICIEL 🐐🏆",texte:`Objectif dépassé. ${pickPhilippe()} C'est masterclass.`},
   {header:"oulaaaa on va avoir besoin d'un plus grand compteur 📈😅",texte:"L'objectif ? Explosé. Vous envoyez de la frappe à un niveau indécent. Calma calma 😤"},
   {header:"C'EST LA DINGUERIE TOTALE LES GARS 💥🏆",texte:`Là c'est un autre niveau. ${pickCEO()} On fixe un nouvel objectif ?`},
-  {header:"CALMA CALMA — MAIS CONTINUEZ 🔥😅",texte:"Vous avez dépassé l'objectif. C'est carré. C'est zinzin. On est ensemble les monstres 🙌"},
+  {header:"CALMA CALMA — MAIS CONTINUEZ 🔥😅",texte:"Vous avez dépassé l'objectif. C'est carré. C'est zinzin. On est ensemble, bravo la team 🙌"},
 ];
 
 // ============================================================
@@ -687,7 +687,7 @@ function getMilestoneAdaptatif(pctObjectif) {
         ]);
         if (pctObjectif >= 50) return pick([
           {emoji:"💪",header:"DÉJÀ 50%+ C'EST ZINZIN",texte:`Mi-semaine et déjà plus de la moitié de l'objectif. ${pickCEO()} 👑🔥`},
-          {emoji:"🏆",header:"VOUS ÊTES EN AVANCE SUR L'OBJECTIF",texte:`Mi-semaine et largement dans les clous. Cette équipe c'est des monstres. ${pickPhilippe()} 😤`},
+          {emoji:"🏆",header:"VOUS ÊTES EN AVANCE SUR L'OBJECTIF",texte:`Mi-semaine et largement dans les clous. Quelle team, quel niveau. ${pickPhilippe()} 🙌`},
           {emoji:"🚀",header:"ON EST EN AVANCE — ON CREUSE L'ÉCART",texte:"Plus de 50% à mi-semaine c'est masterclass. L'objectif va tomber avant vendredi si on continue 🏆"},
           {emoji:"💥",header:"LES CHIFFRES PARLENT D'EUX-MÊMES",texte:`${pickCEO()} 50%+ à mi-semaine, c'est une semaine de feu qui se profile. On lâche rien 🔥`},
           {emoji:"🐐",header:"MERCREDI MATIN EN AVANCE — VOUS ÊTES DES GOAT",texte:`${pickPhilippe()} 50%+ mercredi matin. Jeudi et vendredi pour finir en beauté. Cette semaine va être mémorable 🏆`},
@@ -923,7 +923,7 @@ function getMilestoneAdaptatif(pctObjectif) {
             {emoji:"🏆",header:"ON FINIT CETTE SEMAINE EN BEAUTÉ 🍺🎉",texte:`${pctObjectif}%+ et 2 dernières heures. Le Brelan ce soir c'est validé. Finissez proprement et on célèbre 🥂`},
             {emoji:"💥",header:"QUELLE SEMAINE ON VIENT DE FAIRE 🔥",texte:`${pickCEO()} ${pctObjectif}%+ en fin de semaine. Quelques closes et l'objectif tombe. On profite du weekend 🏆`},
             {emoji:"🚀",header:"L'OBJECTIF EST QUASI BOUCLÉ",texte:`${pctObjectif}%+ en fin de journée. Finissez et cette semaine rejoint le hall of fame 🐐`},
-            {emoji:"💪",header:"ON EST DES MONSTRES — OFFICIELLEMENT",texte:`${pickPhilippe()} ${pctObjectif}%+ et on approche de la ligne. Deux ou trois closes et c'est parfait. BRAVO 🙌`},
+            {emoji:"💪",header:"QUELLE TEAM — OFFICIELLEMENT",texte:`${pickPhilippe()} ${pctObjectif}%+ et on approche de la ligne. Deux ou trois closes et c'est parfait. BRAVO LES BOSS 🙌`},
             {emoji:"🍺",header:"90%+ EN FIN DE SEMAINE — LE BRELAN EST ACQUIS",texte:`${pctObjectif}%+ en fin de semaine. Le Brelan ce soir c'est largement mérité. Finissez proprement et cette semaine est parfaite 🎉`},
             {emoji:"🐐",header:"CETTE SEMAINE EST DÉJÀ DANS LE HALL OF FAME",texte:`${pickCEO()} ${pctObjectif}%+ en fin de semaine. L'objectif va tomber dans les 2 prochaines heures. On est des GOAT 🏆`},
             {emoji:"🎯",header:"ON EST À QUELQUES CLOSES DE LA PERFECTION",texte:`${pctObjectif}%+ et la semaine se finit. Finissez ce que vous avez commencé. Le Brelan ce soir c'est validé 💪`},
@@ -1019,7 +1019,7 @@ function getMilestoneAdaptatif(pctObjectif) {
         {emoji:"🎯",header:"LE GAME EST OUVERT — ON LE GAGNE",texte:"Bien positionnés à mi-journée. L'aprèm pour tout finir. Qui sort le prochain close ? 💪"},
       ]);
       if (pctObjectif >= 50) return pick([
-        {emoji:"🏆",header:"DÉJÀ 50%+ — VOUS ÊTES DES MONSTRES",texte:`Moitié de journée et plus de la moitié de l'objectif. ${pickCEO()} 👑`},
+        {emoji:"🏆",header:"DÉJÀ 50%+ — QUELLE TEAM 🙌",texte:`Moitié de journée et plus de la moitié de l'objectif. Bravo. ${pickCEO()} 👑`},
         {emoji:"💪",header:"ON EST EN AVANCE — ON CREUSE L'ÉCART",texte:"En avance sur l'objectif journalier à midi. Si on continue comme ça on va le pulvériser. Des GOAT 🐐"},
         {emoji:"🚀",header:"L'OBJECTIF VA TOMBER CET APRÈM",texte:`50%+ à midi c'est masterclass. ${pickPhilippe()} L'aprèm pour finir en beauté 🔥`},
         {emoji:"💥",header:"QUELLE MATINÉE VOUS VENEZ DE FAIRE",texte:`${pickCEO()} 50%+ avant midi. L'objectif va tomber bien avant 18h si on continue 🏆`},
@@ -1030,7 +1030,7 @@ function getMilestoneAdaptatif(pctObjectif) {
     if (h >= 15) {
       if (pctObjectif < 40) return pick([
         {emoji:"🚨",header:"SPRINT TOTAL — IL RESTE PEU DE TEMPS",texte:`${pickPhilippePression()} C'est maintenant que les vrais se révèlent. ALLEZ, tout le monde dessus 🔥`},
-        {emoji:"💥",header:"C'EST MAINTENANT OU JAMAIS",texte:"Il reste peu de temps et l'objectif est encore loin. Closes en série immédiatement. Allez les monstres !"},
+        {emoji:"💥",header:"C'EST MAINTENANT OU JAMAIS",texte:"Il reste peu de temps et l'objectif est encore loin. Closes en série immédiatement. Allez la team !"},
         {emoji:"🚨",header:"LES DERNIÈRES HEURES SONT LÀ",texte:`${pickPhilippePression()} Chaque deal maintenant compte triple. On ferme tout ce qu'on peut avant 18h 💪`},
         {emoji:"⚡",header:"ON A LES DERNIÈRES HEURES — ON LES UTILISE",texte:"Il reste du temps. Closes en série maintenant et l'objectif peut encore tomber. Allez les cracks !"},
       ]);
@@ -1042,9 +1042,9 @@ function getMilestoneAdaptatif(pctObjectif) {
       ]);
       if (pctObjectif >= 70) return pick([
         {emoji:"🏆",header:"L'OBJECTIF VA TOMBER AUJOURD'HUI 🔥",texte:`70%+ en fin de journée c'est énorme. ${pickCEO()} Finissez proprement et cette journée sera parfaite 🐐`},
-        {emoji:"💥",header:"VOUS ALLEZ PULVÉRISER L'OBJECTIF",texte:"On est si proches que c'est douloureux 😤 Quelques closes et c'est dans la boîte. Allez les monstres !"},
+        {emoji:"💥",header:"VOUS ALLEZ PULVÉRISER L'OBJECTIF",texte:"On est si proches que c'est douloureux 😤 Quelques closes et c'est dans la boîte. Allez les boss !"},
         {emoji:"🚀",header:"L'OBJECTIF EST QUASIMENT PLIÉ",texte:`${pickPhilippe()} 70%+ en fin de journée. Finissez et cette journée rejoint le hall of fame 🏆`},
-        {emoji:"💪",header:"VOUS ÊTES DES MONSTRES — OFFICIELLEMENT",texte:`${pickCEO()} 70%+ et encore du temps. Cette journée va être parfaite 🔥`},
+        {emoji:"💪",header:"QUELLE TEAM — OFFICIELLEMENT 🙌",texte:`${pickCEO()} 70%+ et encore du temps. Cette journée va être parfaite 🔥`},
       ]);
     }
   }
@@ -1092,7 +1092,7 @@ function getMilestoneForce(objectifDepart, objectif) {
     {emoji:"⚡",header:"LE MOMENTUM EST LÀ — ON EN PROFITE",texte:`${pickCEO()} Gardez la cadence les gars !`},
     {emoji:"💪",header:"C'EST COMME ÇA QU'ON CONSTRUIT UN OBJECTIF",texte:"Deal après deal, close après close. C'est le game et vous êtes dans le game 🎯"},
     {emoji:"🚀",header:"VOUS ENVOYEZ DE LA FRAPPE — CONTINUEZ",texte:`${pickCEO()} On est sur la bonne trajectoire 📈`},
-    {emoji:"😤",header:"LES MONSTRES SONT EN TRAIN DE CLOSER",texte:`${pickPhilippe()} C'est exactement ce qu'on veut voir. 🐐`},
+    {emoji:"😤",header:"LA TEAM EST EN TRAIN DE CLOSER",texte:`${pickPhilippe()} C'est exactement ce qu'on veut voir. Bravo les boss 🐐`},
     {emoji:"🏆",header:"DEAL AFTER DEAL — C'EST LE STYLE MONEY LISA",texte:"On accumule, on cumule, on performe. L'objectif va tomber si vous continuez comme ça 🎯"},
   ]);
 }
@@ -1250,13 +1250,13 @@ function calculerTopSales(periode, mode) {
   return Object.values(scores).sort((a,b)=>mode==="valeur"?b.mrr-a.mrr:b.closes-a.closes).slice(0,3);
 }
 const MESSAGES_TOP_SALES_FIN = [
-  "Continuez comme ça les monstres 😤🔥","Voilà ce qu'on veut voir. Vous êtes des cracks 💪",
+  "Continuez comme ça la team 😤🔥","Voilà ce qu'on veut voir. Bravo les boss 💪",
   "C'est masterclass. On est sur du très lourd 👑","Le classement c'est bien, le 100% c'est mieux. On continue 🚀",
   "Ce rythme, on le garde. On double la mise 😤","Vous envoyez de la frappe les gars. C'est exactement ça 🔥",
   "C'est carré. Maintenant on double la mise 💥","Des GOAT. Voilà ce que vous êtes 🐐🏆",
   "C'est zinzin ce classement. Continuez à envoyer 🙌","Top 3 de feu. Le reste du classement va devoir se réveiller 😅🔥",
   "Ça c'est un classement de boss finals 👑","C'est la maxence totale. Je vous aime les gars 🏆",
-  "Direction l'asile tellement vous êtes bons 😅💥","Vous êtes des tigres. On ne lâche rien 🐯😤",
+  "Direction l'asile tellement vous êtes bons 😅💥","Quelle team, on ne lâche rien 🔥😤",
   "J'ai le seum pour l'objectif tellement vous lui faites du mal 😤🔥",
 ];
 function formaterTopSales(top, periode, mode) {
@@ -1366,7 +1366,7 @@ const MESSAGES_PLANIFIES = {
     lundi:[
       {header:"ON FAIT LE BILAN — ET ON REPART DEMAIN 📊",texte:(p,ml)=>`Fin de journée. ${p}% de l'objectif ${ml} au compteur. ${p>=20?"Belle journée de lundi ! Demain on continue sur cette lancée.":"La journée est terminée. Demain on remonte les manches et on repart plus fort !"}`},
       {header:"LA JOURNÉE EST DANS LA BOÎTE 🙌",texte:(p,ml)=>`${p}% sur l'objectif ${ml} après le premier jour. ${pickPhilippe()} Reposez-vous — demain on remet le couvert !`},
-      {header:"ROUND 1 TERMINÉ — À DEMAIN POUR LE ROUND 2 💪",texte:(p,ml)=>`${p}% de l'objectif ${ml} au bout du premier jour. ${p>=20?"Bon départ !":"Pas le meilleur départ, mais demain c'est une nouvelle page."} À demain les monstres !`},
+      {header:"ROUND 1 TERMINÉ — À DEMAIN POUR LE ROUND 2 💪",texte:(p,ml)=>`${p}% de l'objectif ${ml} au bout du premier jour. ${p>=20?"Bon départ !":"Pas le meilleur départ, mais demain c'est une nouvelle page."} À demain la team !`},
     ],
     mardi:[
       {header:"LA JOURNÉE EST TERMINÉE — À DEMAIN 💪",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. ${p>=40?"Bonne progression. Demain on continue !":" Encore du chemin mais on a le temps. Demain on repart encore plus fort !"}`},
@@ -1392,10 +1392,10 @@ const MESSAGES_PLANIFIES = {
   cloture:{
     lundi:[
       {header:"BONNE SOIRÉE — À DEMAIN 🙌",texte:(p,ml)=>`Fin de journée. ${p}% de l'objectif ${ml}. On rentre, on recharge, et demain on revient encore plus forts !`},
-      {header:"LA JOURNÉE EST TERMINÉE — REPOS MÉRITÉ 💪",texte:(p,ml)=>`${p}% sur l'objectif ${ml} au bout du premier jour. ${pickCEO()} À demain les monstres !`},
+      {header:"LA JOURNÉE EST TERMINÉE — REPOS MÉRITÉ 💪",texte:(p,ml)=>`${p}% sur l'objectif ${ml} au bout du premier jour. ${pickCEO()} À demain la team !`},
     ],
     mardi:[
-      {header:"À DEMAIN LES MONSTRES 💪",texte:(p,ml)=>`${p}% de l'objectif ${ml}. Encore deux jours et demi. On rentre et demain on remet le couvert encore plus fort !`},
+      {header:"À DEMAIN LA TEAM 💪",texte:(p,ml)=>`${p}% de l'objectif ${ml}. Encore deux jours et demi. On rentre et demain on remet le couvert encore plus fort !`},
       {header:"JOURNÉE TERMINÉE — REVENEZ EN FORME 🔋",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. Demain mercredi, pivot de la semaine. Rechargez bien 🙌`},
     ],
     mercredi:[
@@ -1408,7 +1408,7 @@ const MESSAGES_PLANIFIES = {
     ],
     vendredi:[
       {header:"BON WEEKEND — VOUS L'AVEZ MÉRITÉ 🎉🍺",texte:(p,ml)=>`La semaine est terminée. ${p}% sur l'objectif ${ml}. Profitez bien du weekend, vous avez bossé dur. À lundi !`},
-      {header:"WEEKEND — RECHARGEZ LES BATTERIES 🔋🙌",texte:(p,ml)=>`${p}% de l'objectif ${ml} cette semaine. ${pickCEO()} Bon weekend les monstres — lundi on repart plus forts !`},
+      {header:"WEEKEND — RECHARGEZ LES BATTERIES 🔋🙌",texte:(p,ml)=>`${p}% de l'objectif ${ml} cette semaine. ${pickCEO()} Bon weekend la team — lundi on repart plus forts !`},
       {header:"LA SEMAINE EST DANS LA BOÎTE 🏆",texte:(p,ml)=>`${p}% sur l'objectif ${ml}. ${pickPhilippe()} Rechargez les batteries et revenez lundi en mode berserker. Bon weekend !`},
     ],
   },

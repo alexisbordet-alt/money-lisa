@@ -596,14 +596,14 @@ function getMilestoneAdaptatif(pctObjectif) {
     if (jour === 2) {
       if (h < 12) {
         if (pctObjectif < 15) return pick([
-          {emoji:"🚨",header:"ON EST EN RETARD — LA SEMAINE COMMENCE MAINTENANT",texte:`${pickPhilippePression()} Le compteur est encore froid. Aujourd'hui on rattrape. Tout le monde sur le pont 😤`},
-          {emoji:"⚡",header:"LE RÉVEIL GÉNÉRAL C'EST MAINTENANT",texte:"On a pas assez fait hier. Aujourd'hui c'est le jour J. Closes en série dès ce matin. Allez !"},
-          {emoji:"💥",header:"LA SEMAINE DOIT DÉMARRER MAINTENANT",texte:`${pickPhilippePression()} Chaque close ce matin c'est de la marge pour la suite. On envoie la frappe !`},
-          {emoji:"🚨",header:"LA REMONTADA COMMENCE CE MATIN",texte:"Le compteur est trop froid pour où on en est. Ce matin on inverse la tendance. Qui ouvre le bal ? 🔥"},
-          {emoji:"🔥",header:"MARDI MATIN — ON RATTRAPE LE LUNDI",texte:`${pickPhilippePression()} Le lundi a pas suffi. Mardi c'est le jour de la correction. Closes en série dès maintenant. ALLEZ 💪`},
-          {emoji:"💪",header:"LE COMPTEUR EST TROP BAS — ÇA CHANGE CE MATIN",texte:"Deux jours passés et pas assez de chiffres. Ce matin on arrête les belles intentions et on close 😤"},
-          {emoji:"🚀",header:"MARDI MATIN C'EST LE VRAI DÉPART",texte:`${pickPhilippePression()} On repart à zéro mentalement. Chaque close maintenant c'est de la trajectoire pour la semaine. On y va ! 🔥`},
-          {emoji:"⚡",header:"TOUT LE MONDE DESSUS — LÀ, MAINTENANT",texte:"Le compteur dit qu'on a pris du retard. La solution c'est simple : closes en série ce matin. Qui ouvre ? 💥"},
+          {emoji:"☕",header:"MARDI MATIN — ON ATTAQUE TRANQUILLE",texte:"Début de semaine, on a encore 4 jours devant nous. Qui ouvre le score ce matin ?"},
+          {emoji:"🌅",header:"LA SEMAINE EST JEUNE — ON POSE LES BASES",texte:"Objectif encore largement devant, mardi matin c'est le bon moment pour enclencher. Allez les gars 💪"},
+          {emoji:"🎯",header:"MARDI MATIN — QUI OUVRE LE BAL ?",texte:"On a toute la semaine pour faire tomber l'objectif. Chaque close ce matin c'est un pas de plus. Qui se lance ?"},
+          {emoji:"💡",header:"BONNE ÉNERGIE POUR CE MARDI",texte:"Le compteur attend des deals. Pas de pression, juste de l'élan : le premier du jour démarre tout le rythme 🚀"},
+          {emoji:"☀️",header:"ON EST AU DÉBUT DE SEMAINE — ON ENCLENCHE",texte:"Mardi matin, l'objectif est encore loin mais la semaine est devant nous. Qui balance le premier deal ?"},
+          {emoji:"🌱",header:"MARDI — LE MOMENT D'ENCLENCHER LA SEMAINE",texte:"On a fait un début, on continue calmement. Chaque close maintenant c'est du terrain gagné pour plus tard."},
+          {emoji:"🎬",header:"ON DÉMARRE LE MARDI — DOUCEMENT MAIS SÛREMENT",texte:"Pas de panique, la semaine vient à peine de commencer. On pose les closes un par un 💪"},
+          {emoji:"🚀",header:"MARDI MATIN — ON REPART TRANQUILLE",texte:"Nouvelle journée, l'objectif attend. Allez les gars, on y va au rythme qu'il faut."},
         ]);
         if (pctObjectif < 35) return pick([
           {emoji:"💪",header:"ON EST DANS LES CLOUS — ON ACCÉLÈRE",texte:"Bon rythme pour où on en est. Continuez comme ça et l'objectif de la semaine va tomber 🎯"},
@@ -1533,6 +1533,30 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
   state.salesStats[userId].name=userName;
   if (!state.salesStats[userId].closes.some(c=>c.ts===ts))
     state.salesStats[userId].closes.push({ts,montant:mrr,date:dateStr,week:weekStr});
+
+  // ── Purge stale : deals dans le buffer depuis plus de 4h ────────────
+  // Évite qu'un deal posté hier soir reste bloqué dans le buffer toute
+  // la nuit et soit flushé le lendemain matin avec un nouveau deal —
+  // ce qui créait l'illusion d'un "109€ fantôme" dans le calcul.
+  // Les deals purgés sont appliqués SILENCIEUSEMENT à l'objectif (pas
+  // de message Slack), puis sortis du buffer. Le compteur global reste
+  // donc correct, et le prochain flush ne mélange plus les jours.
+  const SEUIL_STALE_BUFFER_MS = 4 * 60 * 60 * 1000;
+  const nowMsCheck = Date.now();
+  const staleDeals = state.buffer.filter(d => {
+    const dealMs = parseFloat(d.ts) * 1000;
+    return isFinite(dealMs) && (nowMsCheck - dealMs) >= SEUIL_STALE_BUFFER_MS;
+  });
+  if (staleDeals.length > 0) {
+    for (const d of staleDeals) {
+      state.objectif -= d.montant;
+      if (!state.tsDejaComptes.includes(d.ts)) state.tsDejaComptes.push(d.ts);
+      state.montantsComptes[d.ts] = d.montant;
+    }
+    state.buffer = state.buffer.filter(d => !staleDeals.includes(d));
+    const total = staleDeals.reduce((s,d)=>s+d.montant, 0);
+    console.log(`🧹 Buffer purgé : ${staleDeals.length} deal(s) > 4h appliqué(s) silencieusement (−${total}€)`);
+  }
 
   state.buffer.push({user:userName,userId,montant:mrr,leads:extraireTousMRR(texte),ts});
   sauvegarderState(state);

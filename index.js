@@ -548,14 +548,14 @@ function getMilestoneAdaptatif(pctObjectif) {
       }
       if (h >= 12 && h < 15) {
         if (pctObjectif < 20) return pick([
-          {emoji:"🚨",header:"LE MATIN EST PASSÉ — L'APRÈM COMMENCE",texte:`${pickPhilippePression()} Le compteur est encore froid. La semaine se joue maintenant. Tout le monde dessus 😤`},
-          {emoji:"💥",header:"ON A L'APRÈM POUR POSER LES BASES",texte:"Le matin était calme, c'est pas un problème. L'aprèm c'est le moment de se rattraper. Closes en série, allez !"},
-          {emoji:"🚨",header:"L'OBJECTIF NOUS REGARDE — ON LUI RÉPOND",texte:"Le compteur attend des chiffres concrets. L'aprèm commence, c'est maintenant qu'on envoie la frappe 🔥"},
-          {emoji:"⚡",header:"LA REMONTADA COMMENCE",texte:`${pickPhilippePression()} On a encore tout l'aprèm. Chaque close maintenant compte double pour le moral 💪`},
-          {emoji:"🔥",header:"LE MATIN C'EST OUBLIÉ — L'APRÈM C'EST MAINTENANT",texte:"On rattrape pas le matin, mais on peut largement poser les bases cet aprèm. Closes en série, on y va 😤"},
-          {emoji:"💪",header:"LUNDI APRÈM — LA SEMAINE SE LANCE MAINTENANT",texte:`${pickPhilippePression()} Le compteur est trop bas pour un début de semaine. L'aprèm commence, on envoie tout 🚀`},
-          {emoji:"🎯",header:"CHAQUE DEAL CET APRÈM = UNE BASE POUR DEMAIN",texte:"Le matin s'est pas passé comme prévu. L'aprèm c'est pour poser les fondations de la semaine. Allez les cracks ! 🔥"},
-          {emoji:"⚡",header:"ON INVERSE LA TENDANCE — MAINTENANT",texte:"La semaine a mal démarré, mais elle est encore jeune. L'aprèm c'est le bon moment pour changer ça. Qui close ? 💥"},
+          {emoji:"☀️",header:"LUNDI APRÈM — ON POSE LES BASES TRANQUILLEMENT",texte:"Le matin était calme, c'est pas un souci. L'aprèm est devant nous pour enclencher la semaine. Qui ouvre le bal ?"},
+          {emoji:"💪",header:"ON A L'APRÈM POUR LANCER LA MACHINE",texte:"Pas de pression, on démarre ensemble. Chaque close cet aprèm c'est une base solide pour le reste de la semaine 🎯"},
+          {emoji:"🎯",header:"L'APRÈM COMMENCE — ON ENCLENCHE",texte:`${pickPhilippe()} On a 4 jours devant nous, autant en profiter dès maintenant. Allez les cracks !`},
+          {emoji:"🌱",header:"LUNDI — LE MOMENT DE PLANTER LES GRAINES",texte:"Début de semaine, rien n'est joué. On pose les closes un par un et ça va monter tranquillement 💪"},
+          {emoji:"🎬",header:"ACTION — L'APRÈM DE LUNDI C'EST PARTI",texte:"Le matin était doux, l'aprèm on enclenche calmement. Qui balance le premier deal pour lancer l'équipe ?"},
+          {emoji:"☕",header:"ON REPREND APRÈS LA PAUSE — ON Y VA TRANQUILLE",texte:`${pickCEO()} Lundi aprèm, encore toute la semaine à écrire. On avance ensemble, deal par deal 🚀`},
+          {emoji:"🚀",header:"LUNDI APRÈM — DOUCEMENT MAIS SÛREMENT",texte:"Chaque close cet aprèm c'est une brique de plus pour la semaine. Pas de panique, juste de l'élan collectif 💪"},
+          {emoji:"💡",header:"L'APRÈM EST LÀ — ON ENCLENCHE ENSEMBLE",texte:"Début de semaine, tout est encore à faire et c'est exactement ce qu'on aime. Qui ouvre le score cet aprèm ?"},
         ]);
         if (pctObjectif < 40) return pick([
           {emoji:"⚡",header:"ON CONTINUE SUR LA LANCÉE",texte:"Bonne matinée. L'aprèm c'est pour consolider. On ne lâche rien 💪"},
@@ -570,14 +570,14 @@ function getMilestoneAdaptatif(pctObjectif) {
       }
       if (h >= 15) {
         if (pctObjectif < 25) return pick([
-          {emoji:"🚨",header:"DERNIER PUSH AVANT DEMAIN",texte:`${pickPhilippePression()} Le reste de la semaine va devoir compenser. On donne tout jusqu'à la fermeture 🔥`},
-          {emoji:"💥",header:"ON SERRE LES DENTS ET ON FINIT FORT",texte:"Le compteur est trop froid. Chaque close maintenant c'est du concret pour la semaine. Allez les gars 😤"},
-          {emoji:"🚨",header:"LA SEMAINE COMMENCE MAL — ON INVERSE",texte:`${pickPhilippePression()} Dernier window de la journée. On envoie tout ce qu'on a maintenant 💪`},
-          {emoji:"⚡",header:"LES VRAIS CLOSENT EN FIN DE JOURNÉE",texte:"C'est maintenant que ça se passe. Chaque deal avant 18h c'est de l'avance sur demain. Qui est chaud ? 🔥"},
-          {emoji:"🔥",header:"LUNDI EN RETARD — MARDI DOIT ÊTRE PARFAIT",texte:`${pickPhilippePression()} Le lundi est passé, le niveau est trop bas. Chaque close ce soir c'est de la pression en moins demain. Allez 😤`},
-          {emoji:"💪",header:"CHAQUE CLOSE AVANT 18H C'EST CRITIQUE",texte:"Le compteur est froid pour un fin de lundi. Mais chaque deal maintenant c'est du concret. Qui ferme avant de partir ? 🎯"},
-          {emoji:"🚨",header:"ON SAUVE CE QUI PEUT L'ÊTRE CE SOIR",texte:`${pickPhilippePression()} Lundi difficile. Mais finir fort ce soir, ça change l'état d'esprit pour demain. ALLEZ 💥`},
-          {emoji:"⚡",header:"LE DERNIER DEAL DE LUNDI — QUI LE PREND ?",texte:"Fin de lundi et le compteur est trop bas. Un ou deux closes avant de partir et on repart avec du momentum demain 💪"},
+          {emoji:"💡",header:"FIN DE LUNDI — ON FERME CE QU'ON PEUT",texte:"Le lundi est un jour de mise en route. Chaque close avant 18h c'est du bonus pour démarrer mardi avec du momentum 💪"},
+          {emoji:"🌅",header:"ON POSE LE DERNIER DEAL DE LA JOURNÉE",texte:`${pickPhilippe()} Encore toute la semaine devant nous. Un ou deux closes avant de partir et on démarre mardi sereins 🎯`},
+          {emoji:"🎯",header:"LUNDI SOIR — UN DERNIER POUR LA ROUTE",texte:"On approche de la fin de journée. Qui a un deal quasi-signé à faire passer avant de quitter ? 💪"},
+          {emoji:"☕",header:"ON FINIT LUNDI TRANQUILLEMENT",texte:"Fin de journée, pas de panique : la semaine est encore jeune. Chaque deal de plus ce soir c'est moins à faire demain 🚀"},
+          {emoji:"💪",header:"UN DERNIER PUSH AVANT DE FERMER",texte:`${pickCEO()} Lundi se termine, mardi arrive. Quelques closes avant 18h et on repart demain avec le sourire 🔥`},
+          {emoji:"🌱",header:"FIN DE LUNDI — ON CAPITALISE",texte:"Début de semaine, chaque brique compte. On termine calmement et on revient fort demain matin 💡"},
+          {emoji:"🚀",header:"LUNDI SOIR — PRÉPARONS MARDI",texte:`${pickPhilippe()} On avance doucement, c'est ok. Quelques deals de plus maintenant et mardi démarre en confiance 💪`},
+          {emoji:"🎬",header:"DERNIER ACTE DE LUNDI — QUI LE JOUE ?",texte:"Fin de journée, la semaine est encore à écrire. Un close ce soir c'est un kick pour l'équipe demain matin 🎯"},
         ]);
         if (pctObjectif >= 25) return pick([
           {emoji:"💪",header:"ON FERME CETTE JOURNÉE PROPREMENT",texte:`Belle journée. On pose des bases solides pour la semaine. ${pickCEO()} 😤`},
@@ -618,14 +618,14 @@ function getMilestoneAdaptatif(pctObjectif) {
       }
       if (h >= 12 && h < 15) {
         if (pctObjectif < 25) return pick([
-          {emoji:"🚨",header:"ON DOIT ACCÉLÉRER — MAINTENANT",texte:`${pickPhilippePression()} Le reste de la semaine va être tendu si on n'accélère pas là. Closes en série, on y va 😤`},
-          {emoji:"💥",header:"LA REMONTADA COMMENCE MAINTENANT",texte:"On a encore 3 jours et demi devant nous. C'est largement suffisant si on y met du sien. Allez les cracks !"},
-          {emoji:"🚨",header:"L'APRÈM DOIT ÊTRE CHARGÉE",texte:`${pickPhilippePression()} On a le temps de rattraper ça. Mais faut commencer maintenant. Tout le monde dessus 🔥`},
-          {emoji:"⚡",header:"3 JOURS POUR TOUT DONNER",texte:"On a encore largement le temps de rattraper. Mais ça commence maintenant. Qui sort le prochain close ? 💪"},
-          {emoji:"🔥",header:"MARDI APRÈM — ON REMET LES COMPTEURS À L'HEURE",texte:`${pickPhilippePression()} Trop peu fait pour mardi aprèm. Mais 3 jours et demi restants, c'est du temps pour bien finir. On inverse maintenant 💥`},
-          {emoji:"💪",header:"ON A ENCORE LE TEMPS — MAIS IL TOURNE",texte:"Mardi aprèm avec peu de chiffres, c'est récupérable. Mais faut pas attendre mercredi pour y aller. Closes maintenant 😤"},
-          {emoji:"🚀",header:"LES REMONTADAS COMMENCENT MARDI APRÈM",texte:`${pickPhilippePression()} Chaque deal de l'après-midi c'est un deal de moins à rattraper jeudi et vendredi. Allez ! 🔥`},
-          {emoji:"⚡",header:"LE RETARD EST RATTRAPABLE — À CONDITION D'Y ALLER MAINTENANT",texte:"Mardi aprèm, 3 jours devant nous. Ce retard se rattrape si on commence à fermer là. Qui ouvre ? 💪"},
+          {emoji:"💪",header:"MARDI APRÈM — ON ENCLENCHE LA SUITE",texte:"On a encore 3 jours et demi devant nous, c'est largement de quoi bien finir. Qui sort le prochain deal ?"},
+          {emoji:"🎯",header:"L'APRÈM DE MARDI — ON MONTE EN RÉGIME",texte:`${pickPhilippe()} Pas de panique, la semaine est encore jeune. On y va close par close, ensemble 🚀`},
+          {emoji:"☀️",header:"ON A TOUTE L'APRÈM POUR POUSSER",texte:"Mardi, encore plein de temps devant. Chaque close maintenant c'est une base posée pour la fin de semaine 💪"},
+          {emoji:"🌱",header:"MARDI APRÈM — ON FAIT POUSSER LE COMPTEUR",texte:`${pickCEO()} On a le temps de bien faire. L'essentiel c'est de garder le rythme en équipe 🎯`},
+          {emoji:"💡",header:"L'APRÈM EST LÀ — ON ENCLENCHE TRANQUILLEMENT",texte:"Début de semaine oblige : pas de pression, juste de l'élan. On pose les closes un par un 💪"},
+          {emoji:"🎬",header:"ACTION APRÈS-MIDI — QUI DONNE LE TON ?",texte:"Mardi aprèm, la semaine est devant. Qui balance le prochain deal pour donner de l'énergie à l'équipe ? 🚀"},
+          {emoji:"☕",header:"APRÈS LA PAUSE CAFÉ — ON ENCLENCHE",texte:`${pickPhilippe()} On repart tranquillement. Chaque close cet aprèm c'est moins à faire mercredi matin 💡`},
+          {emoji:"🚀",header:"MARDI APRÈM — DOUCEMENT ON AVANCE",texte:"La semaine est encore à construire. On y va calmement, deal par deal, et ça va monter tout seul 🎯"},
         ]);
         if (pctObjectif < 45) return pick([
           {emoji:"⚡",header:"ON EST SUR LE FIL — L'APRÈM DOIT ÊTRE FORTE",texte:"On est dans les clous mais juste. L'aprèm doit être chargée. On pousse ensemble 💪"},
@@ -640,14 +640,14 @@ function getMilestoneAdaptatif(pctObjectif) {
       }
       if (h >= 15) {
         if (pctObjectif < 30) return pick([
-          {emoji:"🚨",header:"DERNIER PUSH — LA SEMAINE SE JOUE LÀ",texte:`${pickPhilippePression()} Le reste de la semaine doit être parfait. Allez, dernier push avant demain 🔥`},
-          {emoji:"💥",header:"LES PROCHAINS JOURS VONT ÊTRE DÉCISIFS",texte:"On est en retard sur l'objectif. Demain c'est le jour de la remontada. Dernier deal du jour, qui le prend ? 😤"},
-          {emoji:"🚨",header:"ON A ENCORE LE TEMPS — MAIS IL FAUT DÉMARRER",texte:`${pickPhilippePression()} 3 jours restants. Chaque close maintenant est critique. On envoie la frappe 💪`},
-          {emoji:"⚡",header:"DERNIER WINDOW DE LA JOURNÉE",texte:"C'est l'heure où les vrais closent. Chaque deal avant 18h c'est du concret pour la semaine. Allez !"},
-          {emoji:"🔥",header:"FIN DE MARDI EN RETARD — MERCREDI DOIT ÊTRE PARFAIT",texte:`${pickPhilippePression()} Pas assez de chiffres pour mardi soir. 3 jours restants, c'est récupérable mais ça doit commencer demain matin. Closes avant de partir 😤`},
-          {emoji:"💪",header:"ON FERME CE QU'ON PEUT CE SOIR",texte:"Le compteur est en retard pour la fin de mardi. Chaque close maintenant c'est du carburant pour mercredi. Qui ferme avant 18h ? 🎯"},
-          {emoji:"🚀",header:"MERCREDI VA DEVOIR COMPENSER — ET DEMAIN ÇA COMMENCE",texte:`${pickPhilippePression()} Mardi soir compliqué. Mercredi c'est le jour de la correction. On prépare ça maintenant 🔥`},
-          {emoji:"⚡",header:"CHAQUE DEAL CE SOIR = MOINS DE PRESSION DEMAIN",texte:"Fin de mardi en retard. Mais les closes de la dernière heure, ça change l'ambiance du lendemain. Allez ! 💥"},
+          {emoji:"💡",header:"FIN DE MARDI — ON PRÉPARE MERCREDI",texte:"Encore 3 jours devant nous, c'est large. Un close ce soir et on démarre mercredi avec du momentum 💪"},
+          {emoji:"🌅",header:"ON FERME MARDI PROPREMENT",texte:`${pickPhilippe()} Qui a un dernier deal à faire passer avant de partir ? Ça fait une base de plus pour la suite 🎯`},
+          {emoji:"🎯",header:"MARDI SOIR — UN DERNIER POUR LA ROUTE",texte:"La semaine est encore jeune. Un close avant 18h et mercredi démarre avec un peu d'avance 💪"},
+          {emoji:"☕",header:"FIN DE JOURNÉE TRANQUILLE — ON CAPITALISE",texte:`${pickCEO()} Pas de stress, on a le temps. Quelques closes avant la fermeture et la semaine reste bien en main 🚀`},
+          {emoji:"💪",header:"ON POSE UN DERNIER DEAL AVANT DE QUITTER",texte:"Mardi soir, encore 3 jours pleins. Un dernier push ensemble et on repart demain plein d'élan 🔥"},
+          {emoji:"🌱",header:"MARDI SE TERMINE — ON CAPITALISE",texte:"Début de semaine, chaque deal compte. On ferme calmement et on attaque mercredi frais 💡"},
+          {emoji:"🚀",header:"MARDI SOIR — DIRECTION MERCREDI",texte:`${pickPhilippe()} On pose un close ou deux avant 18h et demain on redémarre sur de bonnes bases 💪`},
+          {emoji:"🎬",header:"DERNIÈRE SCÈNE DE MARDI — QUI LA JOUE ?",texte:"Fin de journée, encore plein de semaine devant. Un deal ce soir = moins à faire demain matin 🎯"},
         ]);
         if (pctObjectif >= 30) return pick([
           {emoji:"💪",header:"ON FERME BIEN CETTE JOURNÉE",texte:`Bonne journée. On est dans le game. Demain on continue et l'objectif va tomber. ${pickCEO()} 🎯`},
@@ -666,14 +666,14 @@ function getMilestoneAdaptatif(pctObjectif) {
     if (jour === 3) {
       if (h < 12) {
         if (pctObjectif < 30) return pick([
-          {emoji:"🚨",header:"MI-SEMAINE ET L'OBJECTIF EST ENCORE LOIN",texte:`${pickPhilippePression()} On est au milieu et on a fait que 30%. On inverse la tendance MAINTENANT. Allez !`},
-          {emoji:"💥",header:"LA SEMAINE SE JOUE MAINTENANT",texte:"Mi-semaine, mi-objectif à faire. C'est le moment de tout donner. Les boss finals closent maintenant 👑"},
-          {emoji:"🚨",header:"ON EST EN RETARD — LA REMONTADA COMMENCE",texte:`${pickPhilippePression()} 2 jours et demi pour tout rattraper. Ça commence ce matin. Allez les cracks !`},
-          {emoji:"⚡",header:"LE SPRINT DE MI-SEMAINE DÉMARRE",texte:"On est à mi-chemin de la semaine avec trop peu de fait. Le sprint commence maintenant. Qui ouvre ? 🔥"},
-          {emoji:"🔥",header:"MERCREDI MATIN — C'EST MAINTENANT QUE ÇA SE JOUE",texte:`${pickPhilippePression()} Mi-semaine et encore beaucoup à rattraper. Chaque close aujourd'hui est critique. Closes en série, allez 😤`},
-          {emoji:"💪",header:"ON A DEUX JOURS PLEINS POUR RATTRAPER",texte:"Mercredi et jeudi restent entiers. C'est suffisant pour renverser ça, à condition de commencer maintenant. Allez ! 🎯"},
-          {emoji:"🚀",header:"LA REMONTADA DE MI-SEMAINE — ÇA COMMENCE CE MATIN",texte:`${pickPhilippePression()} Mercredi matin avec du retard, c'est récupérable. Mais ça demande une intensité max dès maintenant 💥`},
-          {emoji:"⚡",header:"LES SEMAINES QUI SE GAGNENT COMMENCENT MERCREDI",texte:"Mi-semaine en retard c'est pas une fatalité. Mais ça nécessite de se lever le matin. Qui ouvre ce mercredi ? 🔥"},
+          {emoji:"☕",header:"MERCREDI MATIN — ON ENCLENCHE LA MI-SEMAINE",texte:"Milieu de semaine, encore 2 jours et demi pour bien finir. Qui ouvre le bal ce matin ?"},
+          {emoji:"💪",header:"ON A LA SEMAINE ENTRE LES MAINS",texte:`${pickPhilippe()} Mercredi matin, chaque close maintenant c'est de la marge pour la fin de semaine. Allez les cracks 🎯`},
+          {emoji:"🎯",header:"MI-SEMAINE — LE MOMENT D'ACCÉLÉRER TRANQUILLEMENT",texte:"On a encore largement le temps. L'important c'est de garder le rythme en équipe. Qui sort le prochain deal ?"},
+          {emoji:"🌅",header:"MERCREDI MATIN — NOUVELLE DYNAMIQUE",texte:"Nouveau jour, nouvelle énergie. On a deux jours pleins devant pour construire la semaine qu'on veut 💪"},
+          {emoji:"🚀",header:"MERCREDI MATIN — ON MONTE EN RÉGIME",texte:`${pickCEO()} Mi-semaine, on sort le second souffle. Chaque close ce matin c'est un kick pour l'équipe 🔥`},
+          {emoji:"💡",header:"LA SEMAINE SE CONSTRUIT — ON POUSSE ENSEMBLE",texte:"Pas de pression, juste de l'élan collectif. Mi-semaine c'est pile le bon moment pour enclencher la vitesse supérieure 🎯"},
+          {emoji:"☀️",header:"MERCREDI — LE PIVOT DE LA SEMAINE",texte:`${pickPhilippe()} C'est ici que la semaine bascule. On y va ensemble, close après close 💪`},
+          {emoji:"🎬",header:"MERCREDI MATIN — ACTION COLLECTIVE",texte:"Milieu de semaine, encore plein de temps. Qui donne le ton ce matin pour lancer l'équipe ? 🚀"},
         ]);
         if (pctObjectif < 50) return pick([
           {emoji:"⚡",header:"ON EST PILE SUR LE FIL — ON DOIT ACCÉLÉRER",texte:"Mi-semaine et pile à la moitié de l'objectif. C'est le minimum. L'aprèm doit être plus forte. Allez !"},
@@ -698,14 +698,14 @@ function getMilestoneAdaptatif(pctObjectif) {
       }
       if (h >= 12) {
         if (pctObjectif < 40) return pick([
-          {emoji:"🚨",header:"L'OBJECTIF EST EN DANGER — ON RÉAGIT",texte:`${pickPhilippePression()} 2 jours restants. On envoie la frappe MAINTENANT. Pas le temps d'attendre 😤`},
-          {emoji:"💥",header:"LA REMONTADA OU JAMAIS",texte:"On est en retard sur l'objectif. Les 2 prochains jours doivent être parfaits. Chaque close est critique. Allez !"},
-          {emoji:"🚨",header:"ON SE RÉVEILLE OU ON RÉGRESSE",texte:`${pickPhilippePression()} Jeudi et vendredi pour tout rattraper. Ça commence maintenant 🔥`},
-          {emoji:"⚡",header:"DEUX JOURS POUR TOUT INVERSER",texte:"On a encore 2 jours et demi. C'est largement le temps de rattraper si on s'y met maintenant. Allez les cracks !"},
-          {emoji:"🔥",header:"MERCREDI APRÈM EN RETARD — JEUDI DOIT ÊTRE PARFAIT",texte:`${pickPhilippePression()} L'aprèm de mercredi et les 2 jours suivants pour tout rattraper. Chaque close maintenant allège jeudi 💥`},
-          {emoji:"💪",header:"ON A ENCORE DU TEMPS — MAIS IL TOURNE",texte:"Mercredi aprèm, encore 2 jours pleins devant. C'est récupérable, à condition de commencer à closer maintenant. Allez 😤"},
-          {emoji:"🚀",header:"LA REMONTADA COMMENCE CET APRÈM",texte:`${pickPhilippePression()} Mercredi aprèm avec du retard. Chaque close maintenant c'est un deal de moins à faire jeudi matin. ALLEZ 🔥`},
-          {emoji:"⚡",header:"PAS LE MOMENT D'ATTENDRE JEUDI POUR Y ALLER",texte:"Mercredi aprèm et on est en retard. La logique c'est : closes dès maintenant, pas attendre demain. Qui ouvre ? 💪"},
+          {emoji:"💪",header:"MERCREDI APRÈM — ON ENCLENCHE LA SECONDE MOITIÉ",texte:"Encore 2 jours et demi devant nous. Chaque close cet aprèm c'est de la marge pour jeudi et vendredi 🎯"},
+          {emoji:"🎯",header:"L'APRÈM DU PIVOT — ON MONTE ENSEMBLE",texte:`${pickPhilippe()} Mercredi aprèm, c'est le moment idéal pour accélérer tranquillement en équipe. Qui ouvre ?`},
+          {emoji:"🚀",header:"DEUXIÈME MOITIÉ DE SEMAINE — ON LANCE LA MACHINE",texte:"2 jours pleins après aujourd'hui, c'est largement assez pour bien finir. On y va close par close 💪"},
+          {emoji:"☀️",header:"MERCREDI APRÈM — ON POSE DES BASES POUR JEUDI",texte:`${pickCEO()} Chaque deal maintenant c'est un deal de moins à faire demain. On avance ensemble 🔥`},
+          {emoji:"💡",header:"L'APRÈM EST LÀ — ON CAPITALISE",texte:"Mercredi aprèm c'est le momentum parfait pour prendre un peu d'avance. Pas de stress, juste du rythme 🎯"},
+          {emoji:"🎬",header:"SECONDE MI-TEMPS — QUI REPREND LE MATCH ?",texte:"Milieu de semaine dépassé, on attaque la seconde mi-temps. Qui balance le prochain deal pour lancer l'équipe ? 💪"},
+          {emoji:"🏆",header:"MERCREDI APRÈM — ON CONSTRUIT LA FIN DE SEMAINE",texte:`${pickPhilippe()} Encore plein de temps. On enclenche calmement et la fin de semaine sera douce 🚀`},
+          {emoji:"⚡",header:"ON EST AU BON MOMENT — ON EN PROFITE",texte:"Mercredi aprèm, c'est exactement l'heure où l'équipe prend sa deuxième respiration. Qui lance la suite ? 🎯"},
         ]);
         if (pctObjectif < 60) return pick([
           {emoji:"⚡",header:"ON EST DANS LA COURSE — ON DOUBLE LA CADENCE",texte:"On est encore dans le game. Les 2 prochains jours vont être décisifs. On accélère maintenant 💪"},
@@ -737,16 +737,16 @@ function getMilestoneAdaptatif(pctObjectif) {
     //   Jeudi 17h+   : 4 jours passés      → "devrait être" à ~80%
     if (jour === 4) {
       if (h < 12) {
-        // < 45% jeudi matin — sévèrement en retard (3 jours pour 45%)
+        // < 45% jeudi matin — en retard mais on garde un ton fun/pro/collectif (pas de pression le matin)
         if (pctObjectif < 45) return pick([
-          {emoji:"🚨",header:"L'AFTERWORK AU 7 EST EN DANGER 🍺",texte:`${pickPhilippePression()} On est jeudi matin à ${pctObjectif}% — 3 jours de bossé pour ça. Le 7 ce soir c'est compromis si ça ne change pas MAINTENANT. ALLEZ 😤`},
-          {emoji:"💥",header:"ON EST EN RETARD SUR LA SEMAINE — LE 7 SE MÉRITE",texte:`Jeudi matin à ${pctObjectif}%. On a encore aujourd'hui et demain mais ça doit accélérer fort. Closes en série dès maintenant 🔥`},
-          {emoji:"🚨",header:"LE COMPTEUR EST TROP FROID POUR UN JEUDI MATIN",texte:`${pickPhilippePression()} 3 jours de passés et à ${pctObjectif}% seulement. Aujourd'hui c'est le jour de la remontada. On y va 💪`},
-          {emoji:"⚡",header:"ON A DEUX JOURS POUR RATTRAPER — ÇA COMMENCE MAINTENANT",texte:`${pctObjectif}% jeudi matin. Il reste jeudi et vendredi pour faire les ${100-pctObjectif}% restants. C'est serré. Allez les cracks ! 🔥`},
-          {emoji:"🔥",header:"JEUDI MATIN — TOUT OU RIEN",texte:`${pickPhilippePression()} ${pctObjectif}% jeudi matin c'est pas suffisant. Le 7 ce soir c'est loin. Mais jeudi et vendredi restent entiers. On commence là 😤`},
-          {emoji:"💪",header:"LE 7 C'EST COMPROMIS — MAIS LA SEMAINE PEUT ENCORE SE RATTRAPER",texte:`${pctObjectif}% jeudi matin. Honnêtement le 7 ce soir c'est chaud. Mais on peut encore finir fort cette semaine si on y met tout maintenant 🎯`},
-          {emoji:"🚀",header:"JEUDI MATIN SÉVÈRE — VENDREDI DOIT ÊTRE PARFAIT",texte:`${pickPhilippePression()} ${pctObjectif}% à ce stade c'est un problème sérieux. Jeudi et vendredi doivent être exeptionnels. On commence maintenant. ALLEZ 💥`},
-          {emoji:"⚡",header:"LES DEUX PROCHAINS JOURS SONT LE TEST DE LA SEMAINE",texte:`${pctObjectif}% jeudi matin. Le reste de la semaine va devoir compenser fort. Closes en série dès maintenant. Qui ouvre le bal ce jeudi ? 🔥`},
+          {emoji:"🍺",header:"L'AFTERWORK AU 7 SE MÉRITE AUJOURD'HUI",texte:`${pickPhilippe()} Jeudi matin à ${pctObjectif}%. Le 7 ce soir se joue sur les closes de la journée. Qui ouvre le bal ce matin ?`},
+          {emoji:"💪",header:"JEUDI MATIN — ON ENCLENCHE LA FIN DE SEMAINE",texte:`${pctObjectif}% au compteur. Il reste jeudi et vendredi pour bien finir. On avance ensemble, close après close 🎯`},
+          {emoji:"🎯",header:"LE MATCH SE JOUE SUR 2 JOURS — ÇA COMMENCE CE MATIN",texte:`${pctObjectif}% jeudi matin. On a largement de quoi faire. Qui sort le premier deal pour lancer la journée ?`},
+          {emoji:"⚡",header:"DEUX JOURS DEVANT NOUS — ON LES PREND",texte:`${pctObjectif}% au compteur. Jeudi et vendredi pour faire les ${100-pctObjectif}% restants. En équipe, c'est jouable 🔥`},
+          {emoji:"🔥",header:"JEUDI MATIN — ON REMONTE ENSEMBLE",texte:`${pickPhilippe()} ${pctObjectif}% ce matin. Le Brelan de vendredi se construit dès maintenant. Allez les cracks 💪`},
+          {emoji:"🍻",header:"LE 7 CE SOIR — ON EN FAIT UNE MOTIVATION",texte:`${pctObjectif}% jeudi matin. Le 7 c'est la récompense collective des closes de la journée. Qui balance le premier ?`},
+          {emoji:"🚀",header:"JEUDI MATIN — ON LANCE L'ÉQUIPE",texte:`${pctObjectif}% à cette heure. Deux jours pleins pour finir en beauté. Le premier close du matin donne le ton 🎯`},
+          {emoji:"💡",header:"LE RYTHME DE LA MATINÉE FAIT LA SEMAINE",texte:`${pctObjectif}% jeudi matin. Chaque close maintenant c'est un pas vers le 7 ce soir. On pousse ensemble 💪`},
         ]);
         // 45-69% jeudi matin — légèrement en retard, le 7 est atteignable
         if (pctObjectif < 70) return pick([
@@ -850,15 +850,16 @@ function getMilestoneAdaptatif(pctObjectif) {
     // VENDREDI
     if (jour === 5) {
       if (h < 12) {
+        // Vendredi matin — pas de pression (le matin c'est jamais), ton fun+pro+collectif
         if (pctObjectif < 50) return pick([
-          {emoji:"🚨",header:"DERNIER JOUR — L'OBJECTIF EST ENCORE LOIN 🚨",texte:`${pickPhilippePression()} Le Brelan ce soir ça se mérite MAINTENANT. Tout le monde dessus 🍺🔥`},
-          {emoji:"💥",header:"LA SEMAINE SE GAGNE CE MATIN",texte:"L'objectif est encore loin et c'est le dernier jour. Vendredi matin c'est maintenant qu'on rattrape. On accélère ALLEZ 😤"},
-          {emoji:"🚨",header:"C'EST MAINTENANT OU JAMAIS",texte:`${pickPhilippePression()} Dernier matin de la semaine. Closes en série dès maintenant. Tout le monde dessus 🔥`},
-          {emoji:"⚡",header:"LE DERNIER MATIN DE LA SEMAINE — ON L'UTILISE",texte:"On a encore ce matin et cet aprèm. C'est suffisant si on y met tout. Qui ouvre le bal ce matin ? 💪"},
-          {emoji:"🔥",header:"VENDREDI MATIN — DERNIER SPRINT DE LA SEMAINE",texte:`${pickPhilippePression()} L'objectif est loin et la journée commence. Pas le temps de chauffer. Closes en série dès maintenant, tout le monde dessus 😤`},
-          {emoji:"💪",header:"LE BRELAN SE GAGNE DEAL APRÈS DEAL — ET ÇA COMMENCE MAINTENANT",texte:"Vendredi matin et encore beaucoup à faire. Mais la journée est longue si on s'y met. Qui ouvre ? 🎯"},
-          {emoji:"🚀",header:"DERNIER JOUR — ON NE LÂCHE RIEN",texte:`${pickPhilippePression()} Vendredi matin en retard. Tout ce qu'on close aujourd'hui c'est pour sauver la semaine. ALLEZ les cracks 💥`},
-          {emoji:"⚡",header:"LA SEMAINE SE JOUE CE MATIN",texte:"Vendredi matin, l'objectif est encore loin. Mais ce matin + cet aprèm = une vraie opportunité. On y met tout. Allez ! 🔥"},
+          {emoji:"🍺",header:"VENDREDI MATIN — LE BRELAN SE PRÉPARE DÈS MAINTENANT",texte:`${pickPhilippe()} ${pctObjectif}% au compteur. On a toute la journée pour bien finir la semaine. Qui ouvre le bal ce matin ?`},
+          {emoji:"☀️",header:"DERNIER MATIN — ON L'UTILISE BIEN",texte:`${pctObjectif}% vendredi matin. Matin + aprèm = une journée entière pour finir fort ensemble 💪`},
+          {emoji:"💪",header:"VENDREDI MATIN — ON ENCLENCHE LE FINAL",texte:"Dernière journée de la semaine. On a largement de quoi bien finir si on s'y met ensemble. Qui sort le premier deal ?"},
+          {emoji:"🎯",header:"LE MATIN POSE LE RYTHME DE LA JOURNÉE",texte:`${pctObjectif}% au compteur. Un close ce matin et on démarre l'aprèm avec du momentum 🚀`},
+          {emoji:"🎬",header:"VENDREDI — LE DERNIER ACTE DE LA SEMAINE",texte:`${pickPhilippe()} On attaque la dernière journée ensemble. Le Brelan ce soir se construit deal après deal, dès ce matin 🍺`},
+          {emoji:"💡",header:"VENDREDI MATIN — ON LANCE L'ÉQUIPE",texte:"Dernier jour, on y va calmement mais sérieusement. Chaque close ce matin c'est une brique pour l'aprèm 💪"},
+          {emoji:"🚀",header:"LA JOURNÉE EST ENTIÈRE — ON EN PROFITE",texte:`${pickCEO()} Vendredi matin à ${pctObjectif}%. On a de quoi faire une belle fin de semaine. Allez les cracks 🎯`},
+          {emoji:"☕",header:"CAFÉ + PREMIER CLOSE — LA FORMULE DU VENDREDI",texte:`${pctObjectif}% au compteur. Qui ouvre le score ce matin pour donner le ton à toute l'équipe ? 🔥`},
         ]);
         if (pctObjectif < 75) return pick([
           {emoji:"🔥",header:"ON EST DANS LE GAME — ON FINIT LA SEMAINE",texte:`Chaque close ce matin = un verre au Brelan ce soir. ${pickCEO()} Qui est chaud ? 🍺`},

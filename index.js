@@ -1827,12 +1827,16 @@ app.event("message", async ({event,client}) => {
       console.log(`📊 Objectif  : ${state.objectif}€ / ${state.objectifDepart}€`);
       console.log(`📅 Période   : ${state.modeLabel}`);
       console.log(`📥 Buffer    : ${state.buffer.length}/3`);
-      // ── Planificateur minimal ──────────────────────────────────
-      // Ancien planificateur complet (milestone quotidien 16h +
-      // relances 9h/11h30/14h/17h30/18h30) : DÉSACTIVÉ.
-      // Seul actif : le booster 🍑 à 16h les lun/mer/ven.
-      demarrerBoosterCadence16h(app.client);
-      console.log("🕒 Planificateur : booster 🍑 16h lun/mer/ven uniquement");
+      // ── Planificateur COMPLÈTEMENT DÉSACTIVÉ ───────────────────
+      // AUCUN message pré-enregistré n'est envoyé. Le bot ne réagit
+      // qu'aux closes postées par les commerciaux (flush tous les
+      // 3 deals). Les milestones ne s'affichent QUE quand ils sont
+      // attachés à un compteur (tous les 5 flushes ou palier franchi).
+      //   - demarrerPlanificateur (ancien) : OFF
+      //   - demarrerBoosterCadence16h (16h lun/mer/ven) : OFF
+      // Pour réactiver : décommenter la ligne voulue.
+      // demarrerBoosterCadence16h(app.client);
+      console.log("🕒 Planificateur : TOTALEMENT DÉSACTIVÉ (zéro message auto)");
     } catch(e) {
       console.error("❌ Erreur, nouvelle tentative dans 5s...", e.message);
       setTimeout(demarrer, 5000);

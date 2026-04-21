@@ -1534,28 +1534,46 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
   if (!state.salesStats[userId].closes.some(c=>c.ts===ts))
     state.salesStats[userId].closes.push({ts,montant:mrr,date:dateStr,week:weekStr});
 
-  // ── Purge stale : deals dans le buffer depuis plus de 4h ────────────
-  // Évite qu'un deal posté hier soir reste bloqué dans le buffer toute
-  // la nuit et soit flushé le lendemain matin avec un nouveau deal —
-  // ce qui créait l'illusion d'un "109€ fantôme" dans le calcul.
-  // Les deals purgés sont appliqués SILENCIEUSEMENT à l'objectif (pas
-  // de message Slack), puis sortis du buffer. Le compteur global reste
-  // donc correct, et le prochain flush ne mélange plus les jours.
+  // ── Flush anticipé des deals stale (>4h) ──────────────────────────
+  // Avant d'ajouter le nouveau close, on regarde si le buffer contient
+  // des deals de plus de 4h (typiquement des closes d'hier qui n'ont
+  // jamais atteint le seuil de 3). Si oui, on les extrait et on les
+  // flushe MAINTENANT comme leur propre compteur visible (1 ou 2 deals),
+  // pour que le nouveau close n'atterrisse pas dans un buffer "sale"
+  // et ne crée pas l'illusion d'un montant fantôme. Les deals fresh
+  // (<4h) restent dans le buffer en attente.
   const SEUIL_STALE_BUFFER_MS = 4 * 60 * 60 * 1000;
   const nowMsCheck = Date.now();
-  const staleDeals = state.buffer.filter(d => {
+  const staleDeals = [];
+  const freshDeals = [];
+  for (const d of state.buffer) {
     const dealMs = parseFloat(d.ts) * 1000;
-    return isFinite(dealMs) && (nowMsCheck - dealMs) >= SEUIL_STALE_BUFFER_MS;
-  });
+    if (isFinite(dealMs) && (nowMsCheck - dealMs) >= SEUIL_STALE_BUFFER_MS) {
+      staleDeals.push(d);
+    } else {
+      freshDeals.push(d);
+    }
+  }
   if (staleDeals.length > 0) {
-    for (const d of staleDeals) {
-      state.objectif -= d.montant;
+    state.buffer = freshDeals;
+    const totalStale = staleDeals.reduce((s,d)=>s+d.montant, 0);
+    const ancienObj  = state.objectif;
+    state.objectif  -= totalStale;
+    staleDeals.forEach(d => {
       if (!state.tsDejaComptes.includes(d.ts)) state.tsDejaComptes.push(d.ts);
       state.montantsComptes[d.ts] = d.montant;
-    }
-    state.buffer = state.buffer.filter(d => !staleDeals.includes(d));
-    const total = staleDeals.reduce((s,d)=>s+d.montant, 0);
-    console.log(`🧹 Buffer purgé : ${staleDeals.length} deal(s) > 4h appliqué(s) silencieusement (−${total}€)`);
+    });
+    if (state.tsDejaComptes.length > 200) state.tsDejaComptes = state.tsDejaComptes.slice(-200);
+    state.nbCompteurs = (state.nbCompteurs || 0) + 1;
+    state.lastChannel = channel;
+    sauvegarderState(state);
+    console.log(`🧹 Flush anticipé : ${staleDeals.length} deal(s) stale > 4h (−${totalStale}€)`);
+    // Milestone respecte la règle "tous les 5 compteurs" + paliers.
+    const milestoneStale = (state.nbCompteurs % 5 === 0)
+      ? getMilestoneForce(state.objectifDepart, state.objectif)
+      : verifierMilestone(state.objectifDepart, state.objectif);
+    const blocksStale = construireMessage(staleDeals, ancienObj, state.objectif, state.objectifDepart, milestoneStale);
+    await client.chat.postMessage({ channel, text: "🚨 COMPTEUR", blocks: blocksStale });
   }
 
   state.buffer.push({user:userName,userId,montant:mrr,leads:extraireTousMRR(texte),ts});

@@ -1472,7 +1472,24 @@ function demarrerPlanificateur(client) {
 // TRAITEMENT MESSAGE
 // ============================================================
 async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
-  if (!estEdition&&state.tsDejaComptes.includes(ts)) return;
+  // ── GARDE-FOUS ANTI-DOUBLON ────────────────────────────────────
+  // Slack peut livrer 2 fois le même event "message" en cas de :
+  //   - reconnexion Socket Mode,
+  //   - retry Bolt,
+  //   - deploy Railway avec 2 instances momentanément vivantes.
+  // Sans ces guards, le ts est poussé 2 fois dans le buffer et on
+  // se retrouve avec un montant fantôme au flush. Les guards sont
+  // redondants volontairement (défense en profondeur).
+  if (!estEdition) {
+    // 1) ts déjà flushé dans un compteur précédent → ignorer.
+    if (state.tsDejaComptes.includes(ts)) return;
+    // 2) ts déjà présent dans le buffer en attente → ignorer
+    //    (évite le double-push sur delivery dupliquée).
+    if (state.buffer.some(b=>b.ts===ts)) {
+      console.log(`⚠️ Doublon évité (buffer) : ts ${ts} déjà bufferisé`);
+      return;
+    }
+  }
   if (/^\s*<@[A-Z0-9]+>\s*(?:objectif|obj|add|ajoute|remove|supprime|switch|change|statut|stat|top|reset)/i.test(texte)) return;
 
   const mrr = extraireMRR(texte);
@@ -1521,7 +1538,13 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
       }
       return;
     }
-    if (!mrr) return;
+    // ⚠️ Édition d'un message qu'on n'a NI dans le buffer NI dans tsDejaComptes.
+    // Cas typique : édition cosmétique d'un message dont le ts a été purgé
+    // de tsDejaComptes (cap à 200), OU édition d'un message posté pendant
+    // un downtime du bot. Dans les DEUX cas, on NE doit PAS l'ajouter comme
+    // un nouveau close — ça créerait un doublon silencieux si le montant
+    // original avait été capté autrement. On sort silencieusement.
+    return;
   }
 
   if (!mrr) return;
@@ -1575,6 +1598,14 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
       : verifierMilestone(state.objectifDepart, state.objectif);
     const blocksStale = construireMessage(staleDeals, ancienObj, state.objectif, state.objectifDepart, milestoneStale);
     await client.chat.postMessage({ channel, text: "🚨 COMPTEUR", blocks: blocksStale });
+  }
+
+  // 3e garde-fou (défense en profondeur) : entre le début de la fonction
+  // et ici, on a fait des `await` (client.users.info) — un autre handler
+  // concurrent peut avoir pushé le même ts. On revérifie juste avant le push.
+  if (state.buffer.some(b=>b.ts===ts) || state.tsDejaComptes.includes(ts)) {
+    console.log(`⚠️ Doublon évité (race condition post-await) : ts ${ts}`);
+    return;
   }
 
   state.buffer.push({user:userName,userId,montant:mrr,leads:extraireTousMRR(texte),ts});

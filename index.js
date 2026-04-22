@@ -1106,11 +1106,21 @@ function getMilestoneForce(objectifDepart, objectif) {
 // CONSTRUCTION DU CALCUL
 // ============================================================
 function construireCalcul(deals, ancienObjectif, restant) {
-  const debut  = `*${ancienObjectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`;
-  const soustr = deals.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€`).join("  ");
-  const res    = `*${restant.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`;
-  const obj    = `${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`;
-  return `${debut}  ${soustr}  =  ${res}  /  ${obj}`;
+  const fmtE = (n)=>n.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
+  const total       = state.objectifDepart;
+  const ancAvancee  = total - ancienObjectif;
+  const nvAvancee   = total - restant;
+  const leads       = deals.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant]));
+  const somme       = leads.reduce((a,b)=>a+b,0);
+  const addition    = leads.map(l=>`+${fmtE(l)}€`).join("  ");
+  const totalAdd    = `*+${fmtE(somme)}€ de MRR*`;
+  // Ligne 1 : l'addition des 3 nouveaux closes → nouvelle avancée
+  const ligne1 = `💰  ${addition}  =  ${totalAdd}`;
+  // Ligne 2 : avancée qui grimpe (était → maintenant) sur objectif total
+  const ligne2 = `✅  Avancée : *${fmtE(Math.max(0,nvAvancee))}€*  /  ${fmtE(total)}€  _(était ${fmtE(Math.max(0,ancAvancee))}€)_`;
+  // Ligne 3 : reste à faire (ce qui était affiché avant, mais clairement étiqueté)
+  const ligne3 = `⏳  Reste à faire : *${fmtE(Math.max(0,restant))}€*  _(${state.modeLabel})_`;
+  return `${ligne1}\n${ligne2}\n${ligne3}`;
 }
 
 // ============================================================
@@ -1194,9 +1204,17 @@ async function envoyerStatut(channel, client) {
   // le /statut ressemble à un milestone à chaque appel.
   const milestone = verifierMilestone(state.objectifDepart, state.objectif);
 
+  const fmtE = (n)=>n.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
+  const total      = state.objectifDepart;
+  const ancAvancee = total - ancienObjectif;
+  const nvAvancee  = total - state.objectif;
   const calcul = mrrBuffer>0
-    ? `*${ancienObjectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  ${bufferSnapshot.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€`).join("  ")}  =  *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`
-    : `*${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`;
+    ? (()=>{
+        const leads = bufferSnapshot.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant]));
+        const addition = leads.map(l=>`+${fmtE(l)}€`).join("  ");
+        return `💰  ${addition}  =  *+${fmtE(mrrBuffer)}€ de MRR*\n✅  Avancée : *${fmtE(Math.max(0,nvAvancee))}€*  /  ${fmtE(total)}€  _(était ${fmtE(Math.max(0,ancAvancee))}€)_\n⏳  Reste à faire : *${fmtE(Math.max(0,state.objectif))}€*  _(${state.modeLabel})_`;
+      })()
+    : `✅  Avancée : *${fmtE(Math.max(0,nvAvancee))}€*  /  ${fmtE(total)}€\n⏳  Reste à faire : *${fmtE(Math.max(0,state.objectif))}€*  _(${state.modeLabel})_`;
 
   const blocks = [];
 

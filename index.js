@@ -1682,16 +1682,31 @@ app.event("app_mention", async ({event,say,client}) => {
   const mRemObj = tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_OBJ.source+SEP.source+NUM.source, "i"));
   const mRemAva = tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM.source, "i"));
 
+  // Helper d'affichage uniforme pour les messages d'ajustement.
+  // Montre les 3 chiffres clés (Objectif / Avancée / Reste) avec leur évolution.
+  const fmt = (n) => Math.max(0,n).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
+  const signe = (n) => n>0?`+${fmt(n)}`:n<0?`−${fmt(-n)}`:"inchangé";
+  const rendu = (titre, avant, apres) => {
+    const dObj = apres.obj - avant.obj;
+    const dAva = apres.ava - avant.ava;
+    const dRes = apres.res - avant.res;
+    return `${titre}\n`+
+           `• 🎯 Objectif total : *${fmt(apres.obj)}€* _(${dObj===0?"inchangé":`était ${fmt(avant.obj)}€, ${signe(dObj)}€`})_\n`+
+           `• ✅ Avancée : *${fmt(apres.ava)}€* _(${dAva===0?"inchangée":`était ${fmt(avant.ava)}€, ${signe(dAva)}€`})_\n`+
+           `• ⏳ Reste à faire : *${fmt(apres.res)}€* _(${dRes===0?"inchangé":`était ${fmt(avant.res)}€, ${signe(dRes)}€`})_`;
+  };
+  const snapshot = () => ({obj:state.objectifDepart, ava:state.objectifDepart-state.objectif, res:state.objectif});
+
   // ADD OBJECTIF : augmente total + restant (avancée conservée)
   if (mAddObj) {
     if (await refuseIfNotAdmin()) return;
     const ajout = extraireObjectif(mAddObj[1].trim());
     if (!ajout||isNaN(ajout)) { await say(`❌ Montant non reconnu.`); return; }
-    const ancienTotal = state.objectifDepart;
+    const avant = snapshot();
     state.objectifDepart += ajout;
     state.objectif       += ajout;
     sauvegarderState(state);
-    await say(`➕ Objectif total *+${ajout.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* → *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${ancienTotal.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_ — avancée conservée, reste *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`);
+    await say(rendu(`➕ *+${fmt(ajout)}€ à l'OBJECTIF TOTAL*`, avant, snapshot()));
     return;
   }
 
@@ -1701,13 +1716,13 @@ app.event("app_mention", async ({event,say,client}) => {
     const retrait = extraireObjectif(mRemObj[1].trim());
     if (!retrait||isNaN(retrait)) { await say(`❌ Montant non reconnu.`); return; }
     const avancee = state.objectifDepart - state.objectif;
-    if (retrait >= state.objectifDepart) { await say(`❌ Impossible de retirer *${retrait.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* — objectif total = ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€.`); return; }
-    if (retrait > state.objectif)        { await say(`❌ Impossible : retirer *${retrait.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* ferait passer l'objectif sous l'avancée déjà réalisée (${avancee.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€). Utilise \`objectif ${avancee} sur [nouveau_total]\` si tu veux forcer.`); return; }
-    const ancienTotal = state.objectifDepart;
+    if (retrait >= state.objectifDepart) { await say(`❌ Impossible de retirer *${fmt(retrait)}€* — objectif total = *${fmt(state.objectifDepart)}€*.`); return; }
+    if (retrait > state.objectif)        { await say(`❌ Impossible : retirer *${fmt(retrait)}€* ferait passer l'objectif sous l'avancée déjà réalisée (*${fmt(avancee)}€*). Utilise \`objectif ${Math.round(avancee)} sur [nouveau_total]\` si tu veux forcer.`); return; }
+    const avant = snapshot();
     state.objectifDepart -= retrait;
     state.objectif       -= retrait;
     sauvegarderState(state);
-    await say(`➖ Objectif total *−${retrait.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* → *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${ancienTotal.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_ — avancée conservée, reste *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`);
+    await say(rendu(`➖ *−${fmt(retrait)}€ de l'OBJECTIF TOTAL*`, avant, snapshot()));
     return;
   }
 
@@ -1716,10 +1731,10 @@ app.event("app_mention", async ({event,say,client}) => {
     if (await refuseIfNotAdmin()) return;
     const credit = extraireObjectif(mAddAva[1].trim());
     if (!credit||isNaN(credit)) { await say(`❌ Montant non reconnu.`); return; }
-    const ancienReste = state.objectif;
+    const avant = snapshot();
     state.objectif -= credit;
     sauvegarderState(state);
-    await say(`✅ Avancée *+${credit.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* — reste *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${Math.max(0,ancienReste).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_ sur *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`);
+    await say(rendu(`✅ *+${fmt(credit)}€ à l'AVANCÉE*`, avant, snapshot()));
     return;
   }
 
@@ -1728,10 +1743,10 @@ app.event("app_mention", async ({event,say,client}) => {
     if (await refuseIfNotAdmin()) return;
     const debit = extraireObjectif(mRemAva[1].trim());
     if (!debit||isNaN(debit)) { await say(`❌ Montant non reconnu.`); return; }
-    const ancienReste = state.objectif;
+    const avant = snapshot();
     state.objectif += debit;
     sauvegarderState(state);
-    await say(`↩️ Avancée *−${debit.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* — reste *${state.objectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${Math.max(0,ancienReste).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_ sur *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`);
+    await say(rendu(`↩️ *−${fmt(debit)}€ de l'AVANCÉE*`, avant, snapshot()));
     return;
   }
 
@@ -1741,10 +1756,10 @@ app.event("app_mention", async ({event,say,client}) => {
     if (await refuseIfNotAdmin()) return;
     const ajout=extraireObjectif(mAdd[1].trim());
     if (!ajout||isNaN(ajout)){await say(`❌ Montant non reconnu.`);return;}
-    const ancien=state.objectifDepart;
+    const avant = snapshot();
     state.objectifDepart+=ajout; state.objectif+=ajout;
     sauvegarderState(state);
-    await say(`➕ *${ajout.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* ajoutés — nouvel objectif : *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${ancien.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_`);
+    await say(rendu(`➕ *+${fmt(ajout)}€ à l'OBJECTIF TOTAL* _(alias de \`add objectif\`)_`, avant, snapshot()));
     return;
   }
 
@@ -1754,10 +1769,10 @@ app.event("app_mention", async ({event,say,client}) => {
     if (await refuseIfNotAdmin()) return;
     const montant=extraireObjectif(mRem[1].trim());
     if (!montant||isNaN(montant)){await say(`❌ Montant non reconnu.`);return;}
-    const ancien=state.objectif;
+    const avant = snapshot();
     state.objectif+=montant;
     sauvegarderState(state);
-    await say(`↩️ *${montant.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* retirés — objectif ajusté : *${state.objectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${ancien.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_`);
+    await say(rendu(`↩️ *−${fmt(montant)}€ de l'AVANCÉE* _(alias de \`remove avancée\`)_`, avant, snapshot()));
     return;
   }
 

@@ -13,6 +13,11 @@ const app = new App({
 const STATE_FILE  = fs.existsSync("/data") ? "/data/state.json" : "./state.json";
 const CANAL_SORTIE = "test-koh-mando-58";
 
+// ID du channel admin où partent les commandes d'ajustement (add/remove objectif/avancée,
+// statut, reset buffer, message d'aide). Tapées ailleurs → refus éphémère.
+// Les autres commandes (top sales, objectif X, switch) restent dans le channel courant.
+const ADMIN_CHANNEL = "C0APRQ8SC11"; // #test-koh-mando-58
+
 // ============================================================
 // PERSISTANCE
 // ============================================================
@@ -496,10 +501,10 @@ function getMessagePression(pctJourneeEcoule, pctObjectifFait) {
 // MILESTONES
 // ============================================================
 const MILESTONES = {
-  "25":{emoji:"🔥",header:["25% — LA MACHINE EST LANCÉE, ÇA DÉCOIFFE 🔥","ON EST LANCÉS — CETTE TEAM ENVOIE DE LA FRAPPE 💪","25% — QUELLE TEAM, QUELLE ÉNERGIE 💪","LE WARM-UP EST TERMINÉ, C'EST PARTI 🚀","PREMIER QUART DÉJÀ PLIÉ — BRAVO LA TEAM 🏆","25% — C'EST DU TRAVAIL DE BOSS, ON CONTINUE","LA TEAM BALANCE DE LA FRAPPE PAR ICI 👀🔥","25% BOUCLÉS — QUELLE BELLE MISE EN ROUTE ⚡"],texte:[`Un quart de fait et la team envoie déjà du lourd. Gardez cette énergie, c'est exactement ce qu'on voulait voir 🙌`,`25% déjà dans la poche — bravo la team. ${pickCEO()} Cette cadence sur 4, l'objectif va tomber tranquille.`,"Le moteur est chaud et ça se voit. Chaque close compte, et vous en envoyez. On est très fiers 💪","Belle mise en route la team. J'ai hâte de voir la suite, ça sent la dinguerie 🔥","Quart bouclé, ensemble, et c'est que le début. On est fiers, allez les boss 🦁","C'est carré pour le premier quart. Cette team est sur du très lourd, bravo 👑","On sent la dynamique, c'est zinzin. C'est exactement ça qu'on veut voir, continuez 🚀","Premier quart dans la poche. Le reste va tomber encore plus vite, cette team est une machine 💥"]},
-  "50":{emoji:"⚡",header:["MI-CHEMIN — QUELLE TEAM, QUEL NIVEAU 😤🔥","50% ET ÇA FAIT DÉJÀ MAL — CETTE TEAM ENVOIE","HALFWAY DONE — LA TEAM EST EN MODE GOAT 🐐","LA MOITIÉ DANS LA POCHE — C'EST MASTERCLASS 🏆","50% — BRAVO LA TEAM, ON EST FIERS ⚡","L'OBJECTIF COMMENCE À FLIPPER DEVANT VOUS 👀","MOITIÉ FAITE — LA TEAM BALANCE DE LA FRAPPE 🔥","50% — C'EST ZINZIN CE QUE VOUS FAITES LÀ 💪"],texte:[`La moitié c'est fait, et de belle manière. L'autre moitié va tomber encore plus vite, on connait cette team 🙌`,`50% bouclé et c'est masterclass. ${pickPhilippe()} Cette cadence est parfaite, on la garde jusqu'au bout.`,"Mi-chemin franchi avec le sourire. La team est sur du très lourd, le finish est dans le viseur 🎯","La dynamique est là, bravo les boss. Tout le monde pousse dans le même sens, ça se voit 💪",`Moitié faite avec la manière. ${pickCEO()} Cette même énergie jusqu'au bout et c'est parfait.`,"50% — c'est carré. C'est exactement là où la team devait être. Direction la lune 🚀","Le momentum est là, c'est zinzin. C'est maintenant qu'on accélère ensemble 🔥","Halfway — et on sent que le reste va tomber vite. Cette team est en mode GOAT 🐐"]},
-  "75":{emoji:"💥",header:["TROIS QUARTS BOUCLÉS — LE FINISH EST LÀ 💥","75% — LA TEAM EST EN TRAIN DE LE FAIRE 🔥","ON SENT LA VICTOIRE — C'EST LA DINGUERIE ✨","LE DERNIER VIRAGE — LA TEAM EST EN MODE BOSS FINAL 👑","75% — ON EST DANS LE MONEY, ON FINIT ENSEMBLE","PRESQUE AU BOUT — C'EST MASTERCLASS LA TEAM 🏆","LES DERNIERS MÈTRES — CETTE TEAM EST UNE MACHINE 💪","75% — BRAVO LES BOSS, ON LÂCHE RIEN 😅🔥"],texte:[`Trois quarts bouclés. ${pickPhilippe()} On lâche absolument rien, le dernier quart va tomber avec la manière.`,"75% c'est zinzin. Cette team est incroyable. Maintenant on finit le travail proprement, ensemble 🙌","On voit la ligne d'arrivée. La team sprinte, ensemble, et on ne flanche pas. Bravo 💪",`Si près du but. ${pickCEO()} C'est maintenant que la team donne tout — et elle le fait déjà 🐐`,"Dernier virage. C'est carré, on garde la tête froide et on finit fort. Come on la team !","25% restants — c'est presque rien pour des boss comme vous. Allez, ensemble, on y va 🔥","Vous avez fait le plus dur, bravo. Le reste c'est de l'appétit pour cette team 💥","75% — j'ai le seum pour les objectifs tellement cette team les détruit 😤🔥"]},
-  "100":{emoji:"🏆",header:["C'EST DANS LA BOÎTE — QUELLE TEAM, QUEL TRAVAIL 🐐🏆","OBJECTIF PULVÉRISÉ — LA TEAM EST EN MODE BOSS FINAL 👑","MISSION ACCOMPLIE — BRAVO LA TEAM 😤🏆","CHAMPAGNE — C'EST LA DINGUERIE TOTALE 🥂🥂","100% — C'EST MASTERCLASS, ON EST ENSEMBLE 🙌","GAME OVER ET C'EST CETTE TEAM QUI GAGNE — TOUJOURS 🏆","oulaaaa quelle semaine, quelle team 😅🔥","BRAVO LES BOSS — C'EST LÉGENDAIRE 👑🏆"],texte:[`Objectif pulvérisé. ${pickCEO()} On célèbre cette team, et on repart encore plus fort 🍾`,"L'objectif est tombé. Quelle team, quel travail, quelle semaine. On est hyper fiers 🙌",`Mission accomplie. C'est carré, c'est collectif, c'est beau. ${pickPhilippe()} On lève le verre et on recommence 🥂`,"100% bouclé. Cette team est incroyable, et j'ai le seum pour l'objectif tellement vous l'avez détruit 😤","C'est dans la boîte. C'est zinzin ce que cette team vient de faire, ensemble 🐐",`${pickCEO()} Objectif pulvérisé. La team envoie de la frappe à un niveau indécent. On célèbre et on repart 🚀`,"Légendaire. Voilà ce que cette team est. C'est la maxence totale. Je vous aime les boss 🏆","Game over — et c'est cette team qui gagne. Bravo à chacun, on est une famille 🍾"]},
+  "25":{emoji:"🔥",header:["25% — LA MACHINE EST LANCÉE 🔥","PREMIER QUART DANS LA POCHE — BRAVO LES BOSS 💪","ON EST LANCÉS — QUELLE MISE EN ROUTE 🚀","25% BOUCLÉS — ÇA ENVOIE DÈS LE DÉPART 💥","LE WARM-UP EST TERMINÉ, PLACE AU VRAI SHOW 🎬","25% — VOUS BALANCEZ DE LA FRAPPE PAR ICI 👀🔥","PREMIER QUART PLIÉ — ÉQUIPE EN MODE CRACK 💪","ON EST SOUS TENSION — 25% DANS LA POCHE ⚡"],texte:["Un quart de fait et ça envoie déjà du lourd. Gardez cette énergie, on est exactement où on veut être 🙌",`25% déjà dans la poche — bravo les gars. ${pickCEO()} Si on garde cette cadence, l'objectif va tomber tranquille.`,"Le moteur est chaud et ça se voit. Chaque close compte, et vous en alignez. On est très fiers 💪","Belle mise en route la team. J'ai hâte de voir la suite, ça sent la dinguerie 🔥","Quart bouclé, ensemble. Et c'est que le début — allez les boss 🦁","C'est carré pour le premier quart. Vous êtes sur du très lourd, bravo 👑","On sent la dynamique, c'est zinzin. C'est exactement ça qu'on veut voir, continuez 🚀","Premier quart dans la poche. Le reste va tomber encore plus vite, cette équipe est une machine 💥"]},
+  "50":{emoji:"⚡",header:["MI-CHEMIN — C'EST MASTERCLASS 😤🔥","50% DANS LA POCHE — BRAVO LES GARS 💪","HALFWAY DONE — ON EST EN MODE GOAT 🐐","LA MOITIÉ — ON NE RALENTIT PAS, ON ACCÉLÈRE ⚡","50% — ON EST FIERS, ENSEMBLE 🙌","L'OBJECTIF COMMENCE À FLIPPER DEVANT VOUS 👀🔥","MOITIÉ FAITE — QUELLE CADENCE 💥","50% — C'EST ZINZIN CE QU'ON FAIT ENSEMBLE 🚀"],texte:["La moitié, de belle manière. L'autre moitié va tomber encore plus vite, on vous connaît 🙌",`50% bouclé et c'est masterclass. ${pickPhilippe()} Cette cadence est parfaite, on la garde jusqu'au bout.`,"Mi-chemin franchi avec le sourire. Vous êtes sur du très lourd, le finish est dans le viseur 🎯","La dynamique est là, bravo les boss. Tout le monde pousse dans le même sens, ça se voit et ça fait plaisir 💪",`Moitié faite avec la manière. ${pickCEO()} Cette même énergie jusqu'au bout et c'est parfait.`,"50% — c'est carré. Exactement là où on devait être. Direction la lune 🚀","Le momentum est là, c'est zinzin. C'est maintenant qu'on accélère ensemble 🔥","Halfway — on sent que le reste va tomber vite. Quelle équipe, quelle énergie 🐐"]},
+  "75":{emoji:"💥",header:["TROIS QUARTS BOUCLÉS — LE FINISH EST LÀ 💥","75% — ON EST EN TRAIN DE LE FAIRE 🔥","ON SENT LA VICTOIRE — C'EST LA DINGUERIE ✨","LE DERNIER VIRAGE — BRAVO LES BOSS 👑","75% — ON EST DANS LE MONEY, ON FINIT ENSEMBLE","PRESQUE AU BOUT — C'EST MASTERCLASS 🏆","LES DERNIERS MÈTRES — ON NE FLANCHE PAS 💪","75% — ON TIENT, ON FINIT, BRAVO 😤🔥"],texte:[`Trois quarts bouclés. ${pickPhilippe()} On lâche absolument rien — le dernier quart va tomber avec la manière.`,"75% c'est zinzin. Vous êtes incroyables. Maintenant on finit le travail proprement, ensemble 🙌","On voit la ligne d'arrivée. On sprinte, ensemble, et on ne flanche pas. Bravo les gars 💪",`Si près du but. ${pickCEO()} C'est maintenant que les boss se révèlent — et ça se voit 🐐`,"Dernier virage. C'est carré, on garde la tête froide et on finit fort. Come on la team !","25% restants — c'est presque rien pour vous. Allez, ensemble, on y va 🔥","Le plus dur est fait, bravo. Le reste c'est de l'appétit, on ferme tout 💥","75% — j'ai le seum pour l'objectif tellement vous êtes en train de le détruire 😤🔥"]},
+  "100":{emoji:"🏆",header:["C'EST DANS LA BOÎTE — QUELLE SEMAINE 🐐🏆","OBJECTIF PULVÉRISÉ — BRAVO LES BOSS 👑","MISSION ACCOMPLIE — QUELLE ÉQUIPE 😤🏆","CHAMPAGNE — C'EST LA DINGUERIE TOTALE 🥂","100% — C'EST MASTERCLASS, ENSEMBLE 🙌","GAME OVER — ET C'EST NOUS QUI GAGNONS 🏆","oulaaaa quelle semaine les gars 😅🔥","BRAVO LES BOSS — C'EST LÉGENDAIRE 👑🏆"],texte:[`Objectif pulvérisé. ${pickCEO()} On célèbre cette équipe, et on repart encore plus fort 🍾`,"L'objectif est tombé. Quel travail, quelle semaine. On est hyper fiers de vous 🙌",`Mission accomplie. C'est carré, c'est collectif, c'est beau. ${pickPhilippe()} On lève le verre et on recommence 🥂`,"100% bouclé. Vous êtes incroyables, j'ai le seum pour l'objectif tellement vous l'avez détruit 😤","C'est dans la boîte. C'est zinzin ce qu'on vient de faire, ensemble 🐐",`${pickCEO()} Objectif pulvérisé. Ça envoie de la frappe à un niveau indécent. On célèbre et on repart 🚀`,"Légendaire. Voilà ce que vous êtes. Je vous aime les boss 🏆","Game over — et c'est cette équipe qui gagne. Bravo à chacun, on est une famille 🍾"]},
 };
 
 const MESSAGES_DEPASSEMENT = [
@@ -1558,47 +1563,10 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
   if (!state.salesStats[userId].closes.some(c=>c.ts===ts))
     state.salesStats[userId].closes.push({ts,montant:mrr,date:dateStr,week:weekStr});
 
-  // ── Flush anticipé des deals stale (>4h) ──────────────────────────
-  // Avant d'ajouter le nouveau close, on regarde si le buffer contient
-  // des deals de plus de 4h (typiquement des closes d'hier qui n'ont
-  // jamais atteint le seuil de 3). Si oui, on les extrait et on les
-  // flushe MAINTENANT comme leur propre compteur visible (1 ou 2 deals),
-  // pour que le nouveau close n'atterrisse pas dans un buffer "sale"
-  // et ne crée pas l'illusion d'un montant fantôme. Les deals fresh
-  // (<4h) restent dans le buffer en attente.
-  const SEUIL_STALE_BUFFER_MS = 4 * 60 * 60 * 1000;
-  const nowMsCheck = Date.now();
-  const staleDeals = [];
-  const freshDeals = [];
-  for (const d of state.buffer) {
-    const dealMs = parseFloat(d.ts) * 1000;
-    if (isFinite(dealMs) && (nowMsCheck - dealMs) >= SEUIL_STALE_BUFFER_MS) {
-      staleDeals.push(d);
-    } else {
-      freshDeals.push(d);
-    }
-  }
-  if (staleDeals.length > 0) {
-    state.buffer = freshDeals;
-    const totalStale = staleDeals.reduce((s,d)=>s+d.montant, 0);
-    const ancienObj  = state.objectif;
-    state.objectif  -= totalStale;
-    staleDeals.forEach(d => {
-      if (!state.tsDejaComptes.includes(d.ts)) state.tsDejaComptes.push(d.ts);
-      state.montantsComptes[d.ts] = d.montant;
-    });
-    if (state.tsDejaComptes.length > 200) state.tsDejaComptes = state.tsDejaComptes.slice(-200);
-    state.nbCompteurs = (state.nbCompteurs || 0) + 1;
-    state.lastChannel = channel;
-    sauvegarderState(state);
-    console.log(`🧹 Flush anticipé : ${staleDeals.length} deal(s) stale > 4h (−${totalStale}€)`);
-    // Milestone respecte la règle "tous les 5 compteurs" + paliers.
-    const milestoneStale = (state.nbCompteurs % 5 === 0)
-      ? getMilestoneForce(state.objectifDepart, state.objectif)
-      : verifierMilestone(state.objectifDepart, state.objectif);
-    const blocksStale = construireMessage(staleDeals, ancienObj, state.objectif, state.objectifDepart, milestoneStale);
-    await client.chat.postMessage({ channel, text: "🚨 COMPTEUR", blocks: blocksStale });
-  }
+  // ── Pas de flush basé sur le temps ────────────────────────────────
+  // Le compteur est envoyé UNIQUEMENT tous les 3 messages avec MRR,
+  // peu importe le temps écoulé entre deux closes. Les deals restent
+  // dans le buffer aussi longtemps que nécessaire jusqu'à atteindre 3.
 
   // 3e garde-fou (défense en profondeur) : entre le début de la fonction
   // et ici, on a fait des `await` (client.users.info) — un autre handler
@@ -1670,10 +1638,26 @@ async function traiterSuppression({ts,channel}, client) {
 // ============================================================
 // COMMANDES @Money Lisa
 // ============================================================
-app.event("app_mention", async ({event,say}) => {
+app.event("app_mention", async ({event,say,client}) => {
   mettreAJourPeriode();
   const texte=event.text, tl=texte.toLowerCase();
   console.log("🔔 Mention :",texte);
+
+  // Helper : refuse en éphémère si commande admin tapée hors du channel admin.
+  // Retourne true si refusé (l'appelant doit faire `return`), false sinon.
+  const refuseIfNotAdmin = async () => {
+    if (event.channel === ADMIN_CHANNEL) return false;
+    try {
+      await client.chat.postEphemeral({
+        channel: event.channel,
+        user:    event.user,
+        text:    `👻 Cette commande doit être tapée dans <#${ADMIN_CHANNEL}>.`,
+      });
+    } catch (e) {
+      console.log("postEphemeral erreur :", e.message);
+    }
+    return true;
+  };
 
   // ── TOP SALES ────────────────────────────────────────────────
   if (/top\s*sal[e|s]?|top\s*vent|meilleur|classement|ranking|podium|leaderboard|scoreboard/i.test(tl)) {
@@ -1765,9 +1749,82 @@ app.event("app_mention", async ({event,say}) => {
     return;
   }
 
-  // ── ADD ──────────────────────────────────────────────────────
+  // ── ADD / REMOVE (avec qualifier optionnel "objectif" / "avancée") ──
+  // 4 commandes explicites :
+  //   add    objectif X → augmente le total (avancée conservée)
+  //   remove objectif X → diminue  le total (avancée conservée)
+  //   add    avancée X  → augmente l'avancée (réduit le restant, total inchangé)
+  //   remove avancée X  → diminue  l'avancée (augmente le restant, total inchangé)
+  // Sans qualifier : `add X` = add objectif (backward compat), `remove X` = remove avancée (backward compat).
+  const VERBES_ADD = /(?:add|ajout(?:e[rz]?)?|rajout(?:e[rz]?)?|augment(?:e[rz]?)?|monte[rz]?|hausse|boost(?:e[rz]?)?|incr[eé]ment(?:e[rz]?)?|mets?|mettre|mis|\+)/;
+  const VERBES_REM = /(?:remove|rmv|supprim(?:e[rz]?)?|retir(?:e[rz]?)?|effa(?:ce[rz]?)?|annul(?:e[rz]?)?|vir(?:e[rz]?)?|d[eé]duis?|soustrai[tsr]?|soustraire|enlev(?:e[rz]?)?|enlève|baiss(?:e[rz]?)?|diminu(?:e[rz]?)?|[eé]crase[rz]?|\-)/;
+  const QUAL_OBJ   = /(?:l[ae']?\s*)?(?:objectif[s]?|obj|objet|cible|target|goal|total)/;
+  const QUAL_AVA   = /(?:l[ae']?\s*)?(?:avanc[eé]e?s?|avancement|progress(?:ion)?|progr[eé]s|fait[s]?|acquis|crédit|credit)/;
+  const SEP        = /\s+(?:de\s+|[àa]\s+)?/;
+  const NUM        = /([\d,.\s]+k?)/;
+
+  const mAddObj = tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b"+SEP.source+QUAL_OBJ.source+SEP.source+NUM.source, "i"));
+  const mAddAva = tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM.source, "i"));
+  const mRemObj = tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_OBJ.source+SEP.source+NUM.source, "i"));
+  const mRemAva = tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM.source, "i"));
+
+  // ADD OBJECTIF : augmente total + restant (avancée conservée)
+  if (mAddObj) {
+    if (await refuseIfNotAdmin()) return;
+    const ajout = extraireObjectif(mAddObj[1].trim());
+    if (!ajout||isNaN(ajout)) { await say(`❌ Montant non reconnu.`); return; }
+    const ancienTotal = state.objectifDepart;
+    state.objectifDepart += ajout;
+    state.objectif       += ajout;
+    sauvegarderState(state);
+    await say(`➕ Objectif total *+${ajout.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* → *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${ancienTotal.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_ — avancée conservée, reste *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`);
+    return;
+  }
+
+  // REMOVE OBJECTIF : diminue total + restant (avancée conservée)
+  if (mRemObj) {
+    if (await refuseIfNotAdmin()) return;
+    const retrait = extraireObjectif(mRemObj[1].trim());
+    if (!retrait||isNaN(retrait)) { await say(`❌ Montant non reconnu.`); return; }
+    const avancee = state.objectifDepart - state.objectif;
+    if (retrait >= state.objectifDepart) { await say(`❌ Impossible de retirer *${retrait.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* — objectif total = ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€.`); return; }
+    if (retrait > state.objectif)        { await say(`❌ Impossible : retirer *${retrait.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* ferait passer l'objectif sous l'avancée déjà réalisée (${avancee.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€). Utilise \`objectif ${avancee} sur [nouveau_total]\` si tu veux forcer.`); return; }
+    const ancienTotal = state.objectifDepart;
+    state.objectifDepart -= retrait;
+    state.objectif       -= retrait;
+    sauvegarderState(state);
+    await say(`➖ Objectif total *−${retrait.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* → *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${ancienTotal.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_ — avancée conservée, reste *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`);
+    return;
+  }
+
+  // ADD AVANCÉE : augmente l'avancée (réduit le restant, total inchangé)
+  if (mAddAva) {
+    if (await refuseIfNotAdmin()) return;
+    const credit = extraireObjectif(mAddAva[1].trim());
+    if (!credit||isNaN(credit)) { await say(`❌ Montant non reconnu.`); return; }
+    const ancienReste = state.objectif;
+    state.objectif -= credit;
+    sauvegarderState(state);
+    await say(`✅ Avancée *+${credit.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* — reste *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${Math.max(0,ancienReste).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_ sur *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`);
+    return;
+  }
+
+  // REMOVE AVANCÉE : diminue l'avancée (augmente le restant, total inchangé)
+  if (mRemAva) {
+    if (await refuseIfNotAdmin()) return;
+    const debit = extraireObjectif(mRemAva[1].trim());
+    if (!debit||isNaN(debit)) { await say(`❌ Montant non reconnu.`); return; }
+    const ancienReste = state.objectif;
+    state.objectif += debit;
+    sauvegarderState(state);
+    await say(`↩️ Avancée *−${debit.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* — reste *${state.objectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(était ${Math.max(0,ancienReste).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€)_ sur *${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`);
+    return;
+  }
+
+  // ── ADD (sans qualifier — backward compat) : = ADD OBJECTIF ─────
   const mAdd=tl.match(/\b(?:add|ajout(?:e[rz]?)?|rajout(?:e[rz]?)?|ajoute|rajoute|augment(?:e[rz]?)?|monte[rz]?|hausse|boost(?:e[rz]?)?|incr[eé]ment(?:e[rz]?)?|mets?|mettre|mis)\b\s*[àaáâäde@\s]?\s*([\d,.\s]+k?)/i);
   if (mAdd) {
+    if (await refuseIfNotAdmin()) return;
     const ajout=extraireObjectif(mAdd[1].trim());
     if (!ajout||isNaN(ajout)){await say(`❌ Montant non reconnu.`);return;}
     const ancien=state.objectifDepart;
@@ -1777,9 +1834,10 @@ app.event("app_mention", async ({event,say}) => {
     return;
   }
 
-  // ── REMOVE ───────────────────────────────────────────────────
+  // ── REMOVE (sans qualifier — backward compat) : = REMOVE AVANCÉE ──
   const mRem=tl.match(/\b(?:remove|rmv|supprim(?:e[rz]?)?|retir(?:e[rz]?)?|effa(?:ce[rz]?)?|annul(?:e[rz]?)?|vir(?:e[rz]?)?|d[eé]duis?|deduis?|soustrai[tsr]?|soustraire|enlev(?:e[rz]?)?|enlève|baiss(?:e[rz]?)?|diminu(?:e[rz]?)?|[eé]crase[rz]?)\b\s*[àaáâäde@\s]?\s*([\d,.\s]+k?)/i);
   if (mRem) {
+    if (await refuseIfNotAdmin()) return;
     const montant=extraireObjectif(mRem[1].trim());
     if (!montant||isNaN(montant)){await say(`❌ Montant non reconnu.`);return;}
     const ancien=state.objectif;
@@ -1791,17 +1849,21 @@ app.event("app_mention", async ({event,say}) => {
 
   // ── STATUT ───────────────────────────────────────────────────
   if (/\b(?:statut|status|stat[s]?|reste|restant|bilan|avancement|avancem[e]?nt|ou\s*(?:en\s*)?est|où\s*(?:en\s*)?est|où\s*on\s*en|combien|progress|résumé|resume|compteur|recap|récap|show|voir|vois|update|upd8)\b/i.test(tl)) {
+    if (await refuseIfNotAdmin()) return;
     await envoyerStatut(event.channel, app.client);
     return;
   }
 
   // ── RESET ────────────────────────────────────────────────────
   if (/\b(?:reset|reinit(?:ialise[rz]?)?|vider?|raz|repart(?:ir)?|vide[rz]?|nettoie[rz]?|nettoy(?:er)?|clear)\b/i.test(tl)) {
+    if (await refuseIfNotAdmin()) return;
     state.buffer=[]; sauvegarderState(state);
     await say(`🔄 Buffer remis à zéro (0/3).`);
     return;
   }
 
+  // ── HELP (commande non reconnue) ──────────────────────────────
+  if (await refuseIfNotAdmin()) return;
   await say(
     `👋 *Commandes Money Lisa :*\n`+
     `• \`@Money Lisa objectif 9k pour la semaine\`\n`+

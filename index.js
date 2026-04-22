@@ -1786,7 +1786,7 @@ app.event("app_mention", async ({event,say,client}) => {
   if (/\b(?:switch|swicth|swich|swithc|switcher|change|changer|chagne|chnage|modif(?:ie[rz]?)?|modifier|passer?|basculer?|mettre?\s*(?:sur|en|à)|mode|période|periode|period)\b/i.test(tl)) {
     state.modeLabel=detecterPeriode(texte);
     sauvegarderState(state);
-    await say(`🔄 Période changée : *${state.modeLabel}*\nL'objectif reste à *${state.objectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* et le buffer est conservé (${state.buffer.length}/3).`);
+    await say(`🔄 Période changée : *${state.modeLabel}*\n• 🎯 Objectif total : *${fmt(state.objectifDepart)}€*\n• ✅ Avancée : *${fmt(state.objectifDepart-state.objectif)}€*\n• ⏳ Reste à faire : *${fmt(state.objectif)}€*\n_(buffer conservé : ${state.buffer.length}/3)_`);
     return;
   }
 
@@ -1803,7 +1803,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const pctDeja = Math.round((avance/total)*100);
     for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
     sauvegarderState(state);
-    await say(`🎯 Objectif *${total.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* — avancée de *${avance.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* conservée → il reste *${reste.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(${state.modeLabel})_`);
+    await say(`🎯 *Nouvelle config* _(${state.modeLabel})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Avancée : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(reste)}€*`);
     return;
   }
 
@@ -1819,7 +1819,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const pctDeja = Math.round((avance/total)*100);
     for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
     sauvegarderState(state);
-    await say(`📍 Avancée de *${avance.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* enregistrée sur l'objectif *${total.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* → il reste *${Math.max(0,reste).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(${state.modeLabel})_`);
+    await say(`📍 *Avancée mise à jour* _(${state.modeLabel})_\n• 🎯 Objectif total : *${fmt(total)}€* _(inchangé)_\n• ✅ Avancée : *${fmt(avance)}€* _(remplacée)_\n• ⏳ Reste à faire : *${fmt(Math.max(0,reste))}€*\n_⚠️ Cette commande REMPLACE l'avancée. Pour juste ajouter/retirer, utilise \`add avancée X\` / \`remove avancée X\`._`);
     return;
   }
 
@@ -1842,7 +1842,7 @@ app.event("app_mention", async ({event,say,client}) => {
         const pctDeja = Math.round((avance/total)*100);
         for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
         sauvegarderState(state);
-        await say(`🎯 Objectif *${total.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* _(${periode})_ — avancée de *${avance.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€* prise en compte → il reste *${restant.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`);
+        await say(`🎯 *Objectif défini* _(${periode})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Avancée : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(restant)}€*`);
         return;
       }
     }

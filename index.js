@@ -1660,12 +1660,12 @@ app.event("app_mention", async ({event,say,client}) => {
   };
 
   // ── ADD / REMOVE (admin) — PRIORITAIRE sur objectif/avancée/switch ──
-  // 4 commandes explicites :
-  //   add    objectif X → augmente le total (avancée conservée)
-  //   remove objectif X → diminue  le total (avancée conservée)
-  //   add    avancée X  → augmente l'avancée (réduit le restant, total inchangé)
-  //   remove avancée X  → diminue  l'avancée (augmente le restant, total inchangé)
-  // Sans qualifier : `add X` = add objectif (backward compat), `remove X` = remove avancée (backward compat).
+  // 4 commandes explicites — vocabulaire équipe commerciale :
+  //   add    objectif X → augmente le total (25k → 27k), déjà-fait conservé
+  //   remove objectif X → diminue  le total (25k → 23k), déjà-fait conservé
+  //   add    avancée X  → AUGMENTE le reste à faire (annule un close mal compté)
+  //   remove avancée X  → DIMINUE  le reste à faire (enregistre un close loupé)
+  // Sans qualifier : `add X` = add objectif (backward compat), `remove X` = remove avancée (enregistrement d'un close).
   //
   // ⚠️ Ces handlers DOIVENT être évalués AVANT les handlers "avancée X"
   //    et "objectif X" plus bas, sinon le mot "avancée" dans "add avancée 143"
@@ -1692,7 +1692,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const dRes = apres.res - avant.res;
     return `${titre}\n`+
            `• 🎯 Objectif total : *${fmt(apres.obj)}€* _(${dObj===0?"inchangé":`était ${fmt(avant.obj)}€, ${signe(dObj)}€`})_\n`+
-           `• ✅ Avancée : *${fmt(apres.ava)}€* _(${dAva===0?"inchangée":`était ${fmt(avant.ava)}€, ${signe(dAva)}€`})_\n`+
+           `• ✅ Déjà fait : *${fmt(apres.ava)}€* _(${dAva===0?"inchangé":`était ${fmt(avant.ava)}€, ${signe(dAva)}€`})_\n`+
            `• ⏳ Reste à faire : *${fmt(apres.res)}€* _(${dRes===0?"inchangé":`était ${fmt(avant.res)}€, ${signe(dRes)}€`})_`;
   };
   const snapshot = () => ({obj:state.objectifDepart, ava:state.objectifDepart-state.objectif, res:state.objectif});
@@ -1726,27 +1726,29 @@ app.event("app_mention", async ({event,say,client}) => {
     return;
   }
 
-  // ADD AVANCÉE : augmente l'avancée (réduit le restant, total inchangé)
+  // ADD AVANCÉE : AUGMENTE le reste à faire (annule un close mal compté)
+  // → reste à faire +X€, déjà-fait -X€, objectif total inchangé
   if (mAddAva) {
     if (await refuseIfNotAdmin()) return;
-    const credit = extraireObjectif(mAddAva[1].trim());
-    if (!credit||isNaN(credit)) { await say(`❌ Montant non reconnu.`); return; }
+    const montant = extraireObjectif(mAddAva[1].trim());
+    if (!montant||isNaN(montant)) { await say(`❌ Montant non reconnu.`); return; }
     const avant = snapshot();
-    state.objectif -= credit;
+    state.objectif += montant;
     sauvegarderState(state);
-    await say(rendu(`✅ *+${fmt(credit)}€ à l'AVANCÉE*`, avant, snapshot()));
+    await say(rendu(`↩️ *+${fmt(montant)}€ au RESTE À FAIRE* _(annulation d'un close)_`, avant, snapshot()));
     return;
   }
 
-  // REMOVE AVANCÉE : diminue l'avancée (augmente le restant, total inchangé)
+  // REMOVE AVANCÉE : DIMINUE le reste à faire (enregistre un close loupé)
+  // → reste à faire -X€, déjà-fait +X€, objectif total inchangé
   if (mRemAva) {
     if (await refuseIfNotAdmin()) return;
-    const debit = extraireObjectif(mRemAva[1].trim());
-    if (!debit||isNaN(debit)) { await say(`❌ Montant non reconnu.`); return; }
+    const montant = extraireObjectif(mRemAva[1].trim());
+    if (!montant||isNaN(montant)) { await say(`❌ Montant non reconnu.`); return; }
     const avant = snapshot();
-    state.objectif += debit;
+    state.objectif -= montant;
     sauvegarderState(state);
-    await say(rendu(`↩️ *−${fmt(debit)}€ de l'AVANCÉE*`, avant, snapshot()));
+    await say(rendu(`✅ *−${fmt(montant)}€ du RESTE À FAIRE* _(close enregistré)_`, avant, snapshot()));
     return;
   }
 
@@ -1763,16 +1765,16 @@ app.event("app_mention", async ({event,say,client}) => {
     return;
   }
 
-  // ── REMOVE (sans qualifier — backward compat) : = REMOVE AVANCÉE ──
+  // ── REMOVE (sans qualifier — backward compat) : = REMOVE AVANCÉE = close enregistré ──
   const mRem=tl.match(/\b(?:remove|rmv|supprim(?:e[rz]?)?|retir(?:e[rz]?)?|effa(?:ce[rz]?)?|annul(?:e[rz]?)?|vir(?:e[rz]?)?|d[eé]duis?|deduis?|soustrai[tsr]?|soustraire|enlev(?:e[rz]?)?|enlève|baiss(?:e[rz]?)?|diminu(?:e[rz]?)?|[eé]crase[rz]?)\b\s*[àaáâäde@\s]?\s*([\d,.\s]+k?)/i);
   if (mRem) {
     if (await refuseIfNotAdmin()) return;
     const montant=extraireObjectif(mRem[1].trim());
     if (!montant||isNaN(montant)){await say(`❌ Montant non reconnu.`);return;}
     const avant = snapshot();
-    state.objectif+=montant;
+    state.objectif-=montant;
     sauvegarderState(state);
-    await say(rendu(`↩️ *−${fmt(montant)}€ de l'AVANCÉE* _(alias de \`remove avancée\`)_`, avant, snapshot()));
+    await say(rendu(`✅ *−${fmt(montant)}€ du RESTE À FAIRE* _(close enregistré, alias de \`remove avancée\`)_`, avant, snapshot()));
     return;
   }
 
@@ -1786,7 +1788,7 @@ app.event("app_mention", async ({event,say,client}) => {
   if (/\b(?:switch|swicth|swich|swithc|switcher|change|changer|chagne|chnage|modif(?:ie[rz]?)?|modifier|passer?|basculer?|mettre?\s*(?:sur|en|à)|mode|période|periode|period)\b/i.test(tl)) {
     state.modeLabel=detecterPeriode(texte);
     sauvegarderState(state);
-    await say(`🔄 Période changée : *${state.modeLabel}*\n• 🎯 Objectif total : *${fmt(state.objectifDepart)}€*\n• ✅ Avancée : *${fmt(state.objectifDepart-state.objectif)}€*\n• ⏳ Reste à faire : *${fmt(state.objectif)}€*\n_(buffer conservé : ${state.buffer.length}/3)_`);
+    await say(`🔄 Période changée : *${state.modeLabel}*\n• 🎯 Objectif total : *${fmt(state.objectifDepart)}€*\n• ✅ Déjà fait : *${fmt(state.objectifDepart-state.objectif)}€*\n• ⏳ Reste à faire : *${fmt(state.objectif)}€*\n_(buffer conservé : ${state.buffer.length}/3)_`);
     return;
   }
 
@@ -1803,7 +1805,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const pctDeja = Math.round((avance/total)*100);
     for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
     sauvegarderState(state);
-    await say(`🎯 *Nouvelle config* _(${state.modeLabel})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Avancée : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(reste)}€*`);
+    await say(`🎯 *Nouvelle config* _(${state.modeLabel})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Déjà fait : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(reste)}€*`);
     return;
   }
 
@@ -1819,7 +1821,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const pctDeja = Math.round((avance/total)*100);
     for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
     sauvegarderState(state);
-    await say(`📍 *Avancée mise à jour* _(${state.modeLabel})_\n• 🎯 Objectif total : *${fmt(total)}€* _(inchangé)_\n• ✅ Avancée : *${fmt(avance)}€* _(remplacée)_\n• ⏳ Reste à faire : *${fmt(Math.max(0,reste))}€*\n_⚠️ Cette commande REMPLACE l'avancée. Pour juste ajouter/retirer, utilise \`add avancée X\` / \`remove avancée X\`._`);
+    await say(`📍 *Déjà-fait remplacé* _(${state.modeLabel})_\n• 🎯 Objectif total : *${fmt(total)}€* _(inchangé)_\n• ✅ Déjà fait : *${fmt(avance)}€* _(remplacé)_\n• ⏳ Reste à faire : *${fmt(Math.max(0,reste))}€*\n_⚠️ Cette commande REMPLACE le déjà-fait. Pour juste ajouter/retirer au reste, utilise \`add avancée X\` / \`remove avancée X\`._`);
     return;
   }
 
@@ -1842,7 +1844,7 @@ app.event("app_mention", async ({event,say,client}) => {
         const pctDeja = Math.round((avance/total)*100);
         for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
         sauvegarderState(state);
-        await say(`🎯 *Objectif défini* _(${periode})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Avancée : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(restant)}€*`);
+        await say(`🎯 *Objectif défini* _(${periode})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Déjà fait : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(restant)}€*`);
         return;
       }
     }

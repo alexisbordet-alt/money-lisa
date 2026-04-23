@@ -1610,6 +1610,9 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
       ? getMilestoneForce(state.objectifDepart, state.objectif)
       : verifierMilestone(state.objectifDepart, state.objectif);
     const blocks=construireMessage(deals,ancienObjectif,state.objectif,state.objectifDepart,milestone);
+    // Délai de 3s avant d'envoyer le compteur : laisse le temps aux gens
+    // de lire les notifs des 3 closes avant que le compteur apparaisse.
+    await new Promise(r => setTimeout(r, 3000));
     await client.chat.postMessage({channel,text:`🚨 COMPTEUR`,blocks});
   }
 }

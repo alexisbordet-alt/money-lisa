@@ -204,8 +204,14 @@ function extraireTousMRR(texte) {
     .replace(/\bF\.F\b\s*:?\s*\d+[\d\s]*€?/gi,"")
     .replace(/\d+[\d\s]*€?\s*\bF\.F\b/gi,"");
 
-  // ── 2. Supprime les faux positifs ─────────────────────────
-  const sanFaux = sanFF
+  // ── 2a. Normalise "107e" / "107 E" → "107€" (raccourci au lieu du symbole €) ─
+  // Condition : "e" ou "E" collé/suivi d'un nombre, pas suivi d'une autre lettre
+  // (pour éviter de casser "euros", "engagement", "enfant", etc.).
+  const sanE = sanFF
+    .replace(/(\d[\d\s]*(?:[.,]\d+)?)\s*[eE](?=\s|[,.;:!?]|$|[\n\r])/g, "$1€");
+
+  // ── 2b. Supprime les faux positifs ─────────────────────────
+  const sanFaux = sanE
     .replace(/\b\d+\s*(?:pax|pers(?:onnes?)?|places?|ans?|mois|jours?|semaines?|%|h\b)/gi,"IGNORE");
 
   // helper : parse un montant brut avec décimale (point ou virgule)

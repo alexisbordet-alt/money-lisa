@@ -1096,6 +1096,19 @@ function getMilestoneAdaptatif(pctObjectif) {
 // Renvoie null si on ne sait pas calculer (mode inconnu ou hors horaires).
 function pctAttendu() {
   const {h, m, jour} = getNowParis();
+  // ── Multi-jours PRIORITAIRE ────────────────────────────────
+  // On teste ce cas AVANT "la journée" car sur le dernier jour d'un
+  // objectif multi-jours, mettreAJourPeriode bascule le label à
+  // "la journée" — sans cette priorité, pctAttendu retomberait à 0%
+  // à 9h du dernier jour alors qu'on doit être à ~75% d'un objectif 4j.
+  // Granularité horaire : on tient compte de la fraction de la journée
+  // en cours (0 à 9h ouvrées) pour lisser le % attendu sur le multi-jours.
+  if (state.objectifNbJours && state.objectifDateDebut) {
+    const joursEcoules = Math.floor((new Date(getDateStr()) - new Date(state.objectifDateDebut)) / 86400000);
+    const hoursToday   = Math.max(0, Math.min(9, (h + m/60) - 9));
+    const fractionDay  = hoursToday / 9;   // 0 à 9h Paris
+    return Math.round(((joursEcoules + fractionDay) / state.objectifNbJours) * 100);
+  }
   // Semaine de travail = Lun 9h → Ven 18h = 5j × 9h = 45h
   if (state.modeLabel === "la semaine") {
     if (jour < 1 || jour > 5) return null;          // week-end
@@ -1108,11 +1121,6 @@ function pctAttendu() {
     if (jour < 1 || jour > 5) return null;
     const hoursToday = Math.max(0, Math.min(9, (h + m/60) - 9));
     return Math.round((hoursToday / 9) * 100);
-  }
-  // Multi-jours (mois ou "les N prochains jours")
-  if (state.objectifNbJours && state.objectifDateDebut) {
-    const joursEcoules = Math.floor((new Date(getDateStr()) - new Date(state.objectifDateDebut)) / 86400000);
-    return Math.round((joursEcoules / state.objectifNbJours) * 100);
   }
   return null;
 }

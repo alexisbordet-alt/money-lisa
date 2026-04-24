@@ -42,6 +42,28 @@ if (state.nbCompteurs  == null) state.nbCompteurs   = 0;
 if (state.objectifDateDebut === undefined) state.objectifDateDebut = null;
 if (state.objectifNbJours   === undefined) state.objectifNbJours   = null;
 if (state.lastChannel        === undefined) state.lastChannel        = null;
+if (!state.pendingCloses)    state.pendingCloses    = [];
+
+// ── Pré-buffer des "Close" sans montant ──────────────────────
+// Certains commerciaux (ex : Abdel) postent d'abord "Close Chez Machin"
+// sans montant, puis éditent plus tard pour ajouter "179MRR". Avant
+// cette fonctionnalité, ces closes étaient perdus car l'édition arrivait
+// alors que le ts n'était ni dans buffer ni dans tsDejaComptes.
+// On détecte "close" / "closé" / "closed" comme signal, on pré-bufferise
+// le ts, puis l'édition vient renseigner le montant et promouvoir en
+// close normal. Zéro doublon possible : l'état pending est persistant.
+const RE_CLOSE_KEYWORD = /\bclos[eéèêë]d?[es]?\b/i;
+const PENDING_TTL_MS   = 24 * 60 * 60 * 1000;   // 24h
+const PENDING_MAX      = 50;
+function purgerPendingCloses() {
+  const now = Date.now();
+  state.pendingCloses = state.pendingCloses.filter(p => {
+    const age = now - (parseFloat(p.ts) * 1000);
+    return age < PENDING_TTL_MS;
+  });
+  if (state.pendingCloses.length > PENDING_MAX)
+    state.pendingCloses = state.pendingCloses.slice(-PENDING_MAX);
+}
 
 function getDateStr(d = new Date()) { return d.toISOString().split("T")[0]; }
 
@@ -1594,6 +1616,30 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
   const mrr = extraireMRR(texte);
 
   if (estEdition) {
+    // ── Pré-buffer : message posté d'abord sans montant, édité ensuite ─
+    // Si le ts est dans pendingCloses et l'édition apporte enfin un
+    // montant → on le sort de pending et on laisse la suite du code
+    // traiter ça comme un nouveau close (estEdition = false).
+    const pendingIdx = state.pendingCloses.findIndex(p => p.ts === ts);
+    if (pendingIdx !== -1) {
+      if (!mrr) {
+        // Édition mais toujours pas de montant. Si le mot-clé "close" a
+        // été retiré, on nettoie le pending (plus de raison de l'attendre).
+        if (!RE_CLOSE_KEYWORD.test(texte)) {
+          state.pendingCloses.splice(pendingIdx, 1);
+          sauvegarderState(state);
+          console.log(`🧹 Pending retiré (close disparu) : ts ${ts}`);
+        }
+        return;
+      }
+      // Promotion : on extrait du pending et on tombe dans le chemin
+      // "nouveau close" ci-dessous.
+      state.pendingCloses.splice(pendingIdx, 1);
+      sauvegarderState(state);
+      console.log(`✨ Pending promu en close : ts ${ts} — ${mrr}€`);
+      estEdition = false;
+      // fall-through : continue vers la logique "nouveau close"
+    } else {
     const idx = state.buffer.findIndex(b=>b.ts===ts);
 
     // Message encore dans le buffer → met à jour le montant silencieusement
@@ -1637,16 +1683,33 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
       }
       return;
     }
-    // ⚠️ Édition d'un message qu'on n'a NI dans le buffer NI dans tsDejaComptes.
-    // Cas typique : édition cosmétique d'un message dont le ts a été purgé
-    // de tsDejaComptes (cap à 200), OU édition d'un message posté pendant
-    // un downtime du bot. Dans les DEUX cas, on NE doit PAS l'ajouter comme
-    // un nouveau close — ça créerait un doublon silencieux si le montant
-    // original avait été capté autrement. On sort silencieusement.
+    // ⚠️ Édition d'un message qu'on n'a NI dans le buffer NI dans tsDejaComptes
+    // NI dans pendingCloses. Cas typique : édition cosmétique d'un message
+    // dont le ts a été purgé de tsDejaComptes (cap à 200), OU édition d'un
+    // message posté pendant un downtime du bot. Dans les DEUX cas, on NE
+    // doit PAS l'ajouter comme un nouveau close — ça créerait un doublon
+    // silencieux si le montant original avait été capté autrement.
     return;
+    }  // fin du else (ts pas dans pendingCloses)
   }
 
-  if (!mrr) return;
+  if (!mrr) {
+    // Pas de montant extrait. Si le message contient "close" / "closé" et
+    // que le ts n'est ni bufferisé ni compté ni déjà pending, on le
+    // pré-bufferise. Une édition ultérieure viendra le promouvoir.
+    // Ne s'applique qu'aux nouveaux messages (pas aux éditions).
+    if (!estEdition
+        && RE_CLOSE_KEYWORD.test(texte)
+        && !state.buffer.some(b => b.ts === ts)
+        && !state.tsDejaComptes.includes(ts)
+        && !state.pendingCloses.some(p => p.ts === ts)) {
+      purgerPendingCloses();
+      state.pendingCloses.push({ts, userId, channel});
+      sauvegarderState(state);
+      console.log(`⏳ Pré-buffer (close sans montant) : ts ${ts}`);
+    }
+    return;
+  }
 
   let userName="Commercial";
   try {const u=await client.users.info({user:userId});userName=u.user.real_name||u.user.name;} catch(e){}
@@ -1709,6 +1772,13 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
 // SUPPRESSIONS
 // ============================================================
 async function traiterSuppression({ts,channel}, client) {
+  // Nettoie aussi un éventuel pending close (message sans montant supprimé)
+  const pIdx = state.pendingCloses.findIndex(p => p.ts === ts);
+  if (pIdx !== -1) {
+    state.pendingCloses.splice(pIdx, 1);
+    sauvegarderState(state);
+    console.log(`🗑️ Pending supprimé : ts ${ts}`);
+  }
   const idx=state.buffer.findIndex(b=>b.ts===ts);
   if (idx!==-1) {
     for (const uid of Object.keys(state.salesStats))

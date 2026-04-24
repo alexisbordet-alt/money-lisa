@@ -65,7 +65,20 @@ function purgerPendingCloses() {
     state.pendingCloses = state.pendingCloses.slice(-PENDING_MAX);
 }
 
-function getDateStr(d = new Date()) { return d.toISOString().split("T")[0]; }
+// Date au format YYYY-MM-DD dans le fuseau Paris (pas UTC).
+// Railway tourne en UTC : sans cette conversion, le "jour" change à 01h
+// Paris (hiver) ou 02h Paris (été) au lieu de minuit. Pour un objectif
+// multi-jours, c'était 1h-2h de décalage sur les frontières de jour.
+function getDateStr(d = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(d);
+  const y  = parts.find(p=>p.type==="year").value;
+  const mo = parts.find(p=>p.type==="month").value;
+  const da = parts.find(p=>p.type==="day").value;
+  return `${y}-${mo}-${da}`;
+}
 
 // ── Heure/jour en timezone Paris (Railway tourne en UTC) ──────
 function getNowParis() {
@@ -85,13 +98,23 @@ function mettreAJourPeriode() {
   if (!state.objectifNbJours || !state.objectifDateDebut) return;
   const joursEcoules = Math.floor((new Date(getDateStr()) - new Date(state.objectifDateDebut)) / 86400000);
   const restants = state.objectifNbJours - joursEcoules;
-  let newLabel;
-  if (restants <= 1)      newLabel = "la journée";
-  else if (restants <= 4) newLabel = `les ${restants} prochains jours`;
-  else                    newLabel = `les ${restants} prochains jours`;
+
+  // ── Objectif expiré (restants <= 0) ──────────────────────────
+  // On nettoie objectifNbJours + objectifDateDebut SYSTÉMATIQUEMENT,
+  // peu importe le label précédent. Sans ça : si le label était déjà
+  // "la journée" (jour J-1 d'un objectif 4j), le flag ne se nullait
+  // jamais au jour J+1 → l'objectif \"fantôme\" persistait jusqu'à la
+  // prochaine commande.
+  if (restants <= 0) {
+    state.objectifNbJours   = null;
+    state.objectifDateDebut = null;
+    sauvegarderState(state);
+    return;
+  }
+
+  const newLabel = restants <= 1 ? "la journée" : `les ${restants} prochains jours`;
   if (newLabel !== state.modeLabel) {
     state.modeLabel = newLabel;
-    if (restants <= 0) { state.objectifNbJours = null; state.objectifDateDebut = null; }
     sauvegarderState(state);
   }
 }
@@ -1609,6 +1632,12 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
   // Sans ces guards, le ts est poussé 2 fois dans le buffer et on
   // se retrouve avec un montant fantôme au flush. Les guards sont
   // redondants volontairement (défense en profondeur).
+  // Rafraîchit le label multi-jours à chaque close. Sans ça, le label
+  // affiché dans le compteur restait stale entre 2 mentions : le mardi
+  // matin d'un objectif 4 jours pouvait encore afficher "les 4 prochains
+  // jours" au lieu de "les 3 prochains jours".
+  mettreAJourPeriode();
+
   if (!estEdition) {
     // 1) ts déjà flushé dans un compteur précédent → ignorer.
     if (state.tsDejaComptes.includes(ts)) return;

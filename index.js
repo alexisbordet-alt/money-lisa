@@ -1070,6 +1070,31 @@ function getMilestoneAdaptatif(pctObjectif) {
 // verifierMilestone : ne renvoie QUE les paliers 25/50/75/100.
 // Entre deux milestones forcés (toutes les 5 flushes), cette fonction
 // renvoie null, donc le compteur s'affiche seul sans header décoratif.
+// Calcule le % attendu à l'instant T selon la période en cours.
+// Renvoie null si on ne sait pas calculer (mode inconnu ou hors horaires).
+function pctAttendu() {
+  const {h, m, jour} = getNowParis();
+  // Semaine de travail = Lun 9h → Ven 18h = 5j × 9h = 45h
+  if (state.modeLabel === "la semaine") {
+    if (jour < 1 || jour > 5) return null;          // week-end
+    const hoursToday = Math.max(0, Math.min(9, (h + m/60) - 9));
+    const hoursDone  = (jour - 1) * 9 + hoursToday;
+    return Math.round((hoursDone / 45) * 100);
+  }
+  // Journée = 9h → 18h = 9h
+  if (state.modeLabel === "la journée") {
+    if (jour < 1 || jour > 5) return null;
+    const hoursToday = Math.max(0, Math.min(9, (h + m/60) - 9));
+    return Math.round((hoursToday / 9) * 100);
+  }
+  // Multi-jours (mois ou "les N prochains jours")
+  if (state.objectifNbJours && state.objectifDateDebut) {
+    const joursEcoules = Math.floor((new Date(getDateStr()) - new Date(state.objectifDateDebut)) / 86400000);
+    return Math.round((joursEcoules / state.objectifNbJours) * 100);
+  }
+  return null;
+}
+
 function verifierMilestone(objectifDepart, objectif) {
   if (!objectifDepart || objectifDepart <= 0) return null;
   const pct = Math.round((1 - Math.max(0, objectif) / objectifDepart) * 100);
@@ -1078,6 +1103,69 @@ function verifierMilestone(objectifDepart, objectif) {
     if (pct >= threshold && !state.milestonesVus.includes(threshold)) {
       state.milestonesVus.push(threshold);
       sauvegarderState(state);
+
+      // ── Adaptatif : compare TOUJOURS au rythme attendu selon le temps écoulé ─
+      // 100% = toujours célébration pure (objectif atteint)
+      // 25/50/75% = message qui dépend de l'écart au rythme attendu
+      const attendu = pctAttendu();
+      if (threshold < 100 && attendu !== null) {
+        const ecart = pct - attendu;
+
+        // GROS RETARD (≥ 15 pts sous le rythme)
+        if (ecart <= -15) {
+          return pick([
+            {emoji:"⚠️", header:`${threshold}% — MAIS ON EST À LA TRAÎNE`,
+             texte:`On franchit le palier des ${threshold}%, ok. Sauf qu'à ce stade on devrait être à ~${attendu}%. L'objectif ne se rattrape pas tout seul, il faut sérieusement pousser maintenant 💪`},
+            {emoji:"😬", header:`${threshold}% — RYTHME TROP LENT`,
+             texte:`${threshold}% au compteur mais le temps écoulé nous met à ~${attendu}% attendus. On est en retard, faut accélérer la cadence sur les deals qui restent.`},
+            {emoji:"⏰", header:`${threshold}% — IL FAUT METTRE LE TURBO`,
+             texte:`Palier ${threshold}% franchi mais on est sous le rythme (attendu : ~${attendu}%). Moins de temps devant, autant de deals à faire. Chaque close compte double maintenant 🔥`},
+          ]);
+        }
+
+        // LÉGER RETARD (entre -5 et -15 pts)
+        if (ecart < -5) {
+          return pick([
+            {emoji:"📊", header:`${threshold}% — LÉGER RETARD SUR LE RYTHME`,
+             texte:`${threshold}% bouclés, mais normalement on serait à ~${attendu}% à ce stade. Pas dramatique, faut juste pas relâcher sur les prochains deals.`},
+            {emoji:"💪", header:`${threshold}% — ON EST UN CRAN EN DESSOUS`,
+             texte:`Palier atteint, mais on est légèrement sous le rythme idéal (attendu : ~${attendu}%). On serre les rangs et on rattrape.`},
+          ]);
+        }
+
+        // DANS LES CLOUS (±5 pts)
+        if (ecart >= -5 && ecart <= 5) {
+          return pick([
+            {emoji:"🎯", header:`${threshold}% — PILE DANS LE RYTHME`,
+             texte:`${threshold}% franchis et on est pile sur la cadence attendue (~${attendu}%). C'est exactement là qu'on devait être. On garde ça et l'objectif tombe.`},
+            {emoji:"✅", header:`${threshold}% — ON EST DANS LES CLOUS`,
+             texte:`Palier ${threshold}% au bon moment (attendu : ~${attendu}%). Ni avance ni retard, juste du solide. On continue au même rythme 💪`},
+            {emoji:"⚡", header:`${threshold}% — TRAJECTOIRE NICKEL`,
+             texte:`${threshold}% au compteur, ~${attendu}% attendu : on est sur la trajectoire. Reste à tenir cette cadence sur les prochains deals 🎯`},
+          ]);
+        }
+
+        // LÉGÈRE AVANCE (entre +5 et +10 pts)
+        if (ecart < 10) {
+          return pick([
+            {emoji:"🔥", header:`${threshold}% — UN PEU EN AVANCE`,
+             texte:`${threshold}% franchis alors qu'on était censés être à ~${attendu}% seulement. Petite avance sympa, on capitalise dessus pour finir tranquille 💪`},
+            {emoji:"💪", header:`${threshold}% — BELLE AVANCE SUR LE RYTHME`,
+             texte:`Palier atteint avec quelques points d'avance (~${attendu}% attendu, ${pct}% réel). Si on garde cette cadence, la fin est confortable.`},
+          ]);
+        }
+
+        // GROSSE AVANCE (≥ 10 pts au-dessus)
+        return pick([
+          {emoji:"🚀", header:`${threshold}% — BIEN EN AVANCE SUR LE RYTHME`,
+           texte:`${threshold}% alors qu'on n'était censés être qu'à ~${attendu}% à ce stade. Quelle cadence ! L'objectif va tomber avec de la marge si on reste sur cette lancée 🔥`},
+          {emoji:"🐐", header:`${threshold}% — ON EST EN MODE GOAT`,
+           texte:`À ce stade on devait être vers ~${attendu}%, on est déjà à ${pct}%. C'est masterclass. On garde cette énergie et l'objectif tombe large 💥`},
+        ]);
+      }
+
+      // Fallback : palier 100% OU période hors-temps (week-end, mode inconnu)
+      // → on prend le message standard de célébration
       const m = MILESTONES[String(threshold)];
       return {
         emoji: m.emoji,

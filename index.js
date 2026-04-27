@@ -330,8 +330,11 @@ function extraireTousMRR(texte) {
       resultats.push({montant,index:match.index});
   }
 
-  // ── 4. Cherche UPSELL explicite ──────────────────────────
-  const upsellReg = /(?:upsell|up[\s\-]?sell|upgr[ae]de|mont[eé]e?\s*en\s*gamme|extension|ajout\s*(?:module|option|utilisateur|user|licence|licences?)|augmentation\s*(?:contrat|abonnement|licence)|cross[\s\-]?sell|addon|add[\s\-]?on)\s*[:\-]?\s*[+]?\s*(\d[\d\s]*(?:[.,]\d+)?)\s*€?|[+]?\s*(\d[\d\s]*(?:[.,]\d+)?)\s*€?\s*(?:d[e']?\s*)?(?:upsell|up[\s\-]?sell|upgr[ae]de|extension|ajout)/gi;
+  // ── 4. Cherche UPSELL / RENEW / RENOUVELLEMENT / EXTEND explicite ──
+  // ⚠️ Liste KW_DEAL alignée avec RE_CLOSE_KEYWORD (haut du fichier).
+  // Si tu ajoutes un mot-clé ici, ajoute-le aussi dans RE_CLOSE_KEYWORD
+  // sinon le gate G13 rejettera le message avant qu'on arrive à parser.
+  const upsellReg = /(?:upsell|up[\s\-]?[sc]ells?|upgr[ae]de|mont[eé]e?\s*en\s*gamme|extens?ion|extend\w*|renew\w*|renouv\w*|ajout\s*(?:module|option|utilisateur|user|licence|licences?)|augmentation\s*(?:contrat|abonnement|licence)|cross[\s\-]?sell|addon|add[\s\-]?on)\s*[:\-]?\s*[+]?\s*(\d[\d\s]*(?:[.,]\d+)?)\s*€?|[+]?\s*(\d[\d\s]*(?:[.,]\d+)?)\s*€?\s*(?:d[e']?\s*)?(?:upsell|up[\s\-]?[sc]ells?|upgr[ae]de|extens?ion|extend\w*|renew\w*|renouv\w*|ajout)/gi;
 
   while ((match = upsellReg.exec(sanFaux)) !== null) {
     const montant = parseMontant(match[1]||match[2]||"");
@@ -365,7 +368,10 @@ function extraireTousMRR(texte) {
   }
 
   // ── 6. Message "Close/Upsell [nom] [montant(s)]" sans € ──
-  if (/^\s*(?:close|deal|won|vendu|sign[eé]|upsell|upgrade|extension)\b/i.test(sanFaux)) {
+  // ⚠️ Liste alignée sur RE_CLOSE_KEYWORD : on accepte les mêmes mots-clés
+  // (close/upsell/renew/renouv/extens/extend) que le gate G13 pour qu'un
+  // message du style "Renouvellement Skello 500" soit aussi récupéré.
+  if (/^\s*(?:close|deal|won|vendu|sign[eé]|upsell|up[\s\-]?[sc]ells?|upgr[ae]de|extens?ion|extend\w*|renew\w*|renouv\w*)\b/i.test(sanFaux)) {
     const nums = [...sanFaux.matchAll(/\b(\d{2,6}(?:[.,]\d+)?)\b/g)]
       .filter(m=>!m.input.slice(m.index-5,m.index+15).includes("IGNORE"));
     if (nums.length===1) {

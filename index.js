@@ -18,6 +18,10 @@ const CANAL_SORTIE = "test-koh-mando-58";
 // Les autres commandes (top sales, objectif X, switch) restent dans le channel courant.
 const ADMIN_CHANNEL = "C0APRQ8SC11"; // #test-koh-mando-58
 
+// Channel principal où les commerciaux postent leurs closes et où
+// les compteurs / annonces d'objectif doivent être broadcastés.
+const PRINCIPAL_CHANNEL = "C01141BPPHU"; // #koh-mando
+
 // ============================================================
 // PERSISTANCE
 // ============================================================
@@ -30,6 +34,7 @@ function chargerState() {
     modeLabel: "la semaine", objectifDepart: 8073, objectif: 8073,
     buffer: [], milestonesVus: [], tsDejaComptes: [], montantsComptes: {}, salesStats: {}, nbCompteurs: 0,
     objectifDateDebut: null, objectifNbJours: null, lastChannel: null,
+    pendingCloses: [], pendingAvancees: [],
   };
 }
 // M13 : écriture atomique. writeFileSync direct peut laisser le fichier
@@ -66,6 +71,13 @@ if (state.objectifDateDebut === undefined) state.objectifDateDebut = null;
 if (state.objectifNbJours   === undefined) state.objectifNbJours   = null;
 if (state.lastChannel        === undefined) state.lastChannel        = null;
 if (!state.pendingCloses)    state.pendingCloses    = [];
+// pendingAvancees : ajustements `add/remove avancée X` empilés depuis le
+// channel test, à intégrer comme line-items distincts dans le PROCHAIN
+// compteur (sur le channel principal). Chaque entrée :
+//   { montant: 80, sens: 'remove'|'add', ts: Date.now() }
+// — sens 'remove' soustrait du reste à faire (close enregistré),
+// — sens 'add'    ajoute    au reste à faire (annulation d'un close).
+if (!state.pendingAvancees) state.pendingAvancees = [];
 
 // ── Pré-buffer des "Close" sans montant ──────────────────────
 // Certains commerciaux (ex : Abdel) postent d'abord "Close Chez Machin"
@@ -1279,11 +1291,31 @@ function getMilestoneForce(objectifDepart, objectif) {
 // ============================================================
 // CONSTRUCTION DU CALCUL
 // ============================================================
-function construireCalcul(deals, ancienObjectif, restant) {
-  const debut  = `*${ancienObjectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`;
-  const soustr = deals.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€`).join("  ");
-  const res    = `*${restant.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*`;
-  const obj    = `${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`;
+function construireCalcul(deals, ancienObjectif, restant, pendingAvancees = []) {
+  const fmt = n => n.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
+  // ⚠️ ancienObjectif passé est state.objectif AU MOMENT du flush — il
+  // a DÉJÀ subi les avancées pending (les commandes admin mutent
+  // state.objectif immédiatement). Pour afficher un calcul cohérent
+  // (ancien − deals − avancées = restant), on remonte d'un cran :
+  //   ancien_affiché = ancien + Σremove − Σadd
+  // Comme ça le calcul visuel matche : on déduit ensuite les avancées
+  // explicitement comme line-items.
+  const sumRem = pendingAvancees.filter(p=>p.sens==='remove').reduce((s,p)=>s+p.montant,0);
+  const sumAdd = pendingAvancees.filter(p=>p.sens==='add').reduce((s,p)=>s+p.montant,0);
+  const ancienAffiche = ancienObjectif + sumRem - sumAdd;
+  const debut  = `*${fmt(ancienAffiche)}€*`;
+  const partsDeals = deals.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${fmt(l)}€`);
+  // Pending avancées : line-items distincts, suffixés "(avancée)" pour
+  // distinguer visuellement des closes commerciaux. 'add' = +X (annulation),
+  // 'remove' = -X (close enregistré).
+  const partsAvan  = pendingAvancees.map(p =>
+    p.sens === 'add'
+      ? `+  ${fmt(p.montant)}€ _(avancée)_`
+      : `−  ${fmt(p.montant)}€ _(avancée)_`
+  );
+  const soustr = [...partsDeals, ...partsAvan].join("  ");
+  const res    = `*${fmt(restant)}€*`;
+  const obj    = `${fmt(state.objectifDepart)}€  _(${state.modeLabel})_`;
   return `${debut}  ${soustr}  =  ${res}  /  ${obj}`;
 }
 
@@ -1304,10 +1336,10 @@ function construireCalcul(deals, ancienObjectif, restant) {
 // compteur : il est désormais envoyé par le planificateur 16h
 // lun/mer/ven (voir demarrerBoosterCadence16h).
 // ============================================================
-function construireMessage(deals, ancienObjectif, restant, objectifDepart, milestone) {
+function construireMessage(deals, ancienObjectif, restant, objectifDepart, milestone, pendingAvancees = []) {
   const depasse     = restant<0;
   const depasseAff  = Math.abs(restant).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
-  const calcul      = construireCalcul(deals, ancienObjectif, restant);
+  const calcul      = construireCalcul(deals, ancienObjectif, restant, pendingAvancees);
   const blocks      = [];
 
   // ── 1. TITRE (toujours) ──────────────────────────────────
@@ -1339,6 +1371,38 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
   blocks.push({type:"section",text:{type:"mrkdwn",text:barreProgression(objectifDepart,restant)}});
 
   return blocks;
+}
+
+// ============================================================
+// BROADCAST OBJECTIF (channel principal)
+// ------------------------------------------------------------
+// Quand l'admin fixe un nouvel objectif depuis le channel test, on
+// annonce sur le channel principal (où les commerciaux closent) sans
+// préciser d'heure de fin. Si le post rate (channel inaccessible, etc.),
+// on log mais on ne fait pas planter le handler — l'ack sur test reste.
+async function broadcastObjectifPrincipal(client, periode, total, restant) {
+  const fmt = n => Math.max(0,n).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
+  const periodeUpper = periode.toUpperCase();
+  const lignes = [
+    `🎯  *NOUVEL OBJECTIF — ${periodeUpper}*`,
+    ``,
+    `Total à faire : *${fmt(total)}€*`,
+  ];
+  if (restant !== total) {
+    lignes.push(`Reste à faire : *${fmt(restant)}€*  _(${fmt(total - restant)}€ déjà fait)_`);
+  }
+  try {
+    await client.chat.postMessage({
+      channel: PRINCIPAL_CHANNEL,
+      text: `🎯 Nouvel objectif — ${periode}`,
+      blocks: [
+        { type:"section", text:{ type:"mrkdwn", text: lignes.join("\n") } },
+        { type:"section", text:{ type:"mrkdwn", text: barreProgression(total, restant) } },
+      ],
+    });
+  } catch(e) {
+    console.log("broadcastObjectifPrincipal raté :", e.message);
+  }
 }
 
 // ============================================================
@@ -1828,9 +1892,13 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
     // 4) Le push dans milestonesVus se fait APRÈS le postMessage : si
     //    le bot crash entre le push et l'envoi, on préfère re-afficher
     //    un milestone plutôt que le perdre silencieusement.
+    // 5) On SNAPSHOT pendingAvancees AVANT le sleep pour figer ce qui
+    //    sera affiché. Les avancées arrivant pendant le sleep iront
+    //    dans le compteur SUIVANT (cohérence visuelle).
     const deals            = state.buffer.splice(0, 3);
     const ancienObjectif   = state.objectif;
     const totalMRR         = deals.reduce((s,d)=>s+d.montant, 0);
+    const avanceesSnap     = [...state.pendingAvancees];
     state.objectif         = ancienObjectif - totalMRR;
     deals.forEach(d => { state.tsDejaComptes.push(d.ts); state.montantsComptes[d.ts] = d.montant; });
     if (state.tsDejaComptes.length > 500) state.tsDejaComptes = state.tsDejaComptes.slice(-500);
@@ -1851,13 +1919,25 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
       : verifierMilestone(state.objectifDepart, state.objectif);
     // Recalcul du reste et du calcul affiché avec les valeurs courantes
     // (au cas où une édition/suppression a bougé state.objectif).
-    const objetFinal = state.objectif;
-    const blocks = construireMessage(deals, ancienObjectif, objetFinal, state.objectifDepart, milestone);
+    // Pour la cohérence du calcul affiché avec les avancées-snap, on neutralise
+    // les avancées arrivées PENDANT le sleep (elles iront au prochain compteur).
+    const avanceesPostSleep = state.pendingAvancees.slice(avanceesSnap.length);
+    const netPostSleep = avanceesPostSleep.reduce((s,p) =>
+      p.sens === 'remove' ? s - p.montant : s + p.montant, 0);
+    const objetFinal = state.objectif - netPostSleep;
+    const blocks = construireMessage(deals, ancienObjectif, objetFinal, state.objectifDepart, milestone, avanceesSnap);
     try {
       await client.chat.postMessage({channel, text:`🚨 COMPTEUR`, blocks});
+      // Post réussi : on retire UNIQUEMENT les avancées du snapshot
+      // (les nouvelles arrivées pendant le sleep restent en attente).
+      const snapTs = new Set(avanceesSnap.map(p => p.ts));
+      state.pendingAvancees = state.pendingAvancees.filter(p => !snapTs.has(p.ts));
+      sauvegarderState(state);
     } catch(e) {
       // Post raté : on annule le marquage du milestone pour qu'il se
       // re-déclenche au prochain flush (plutôt que de le perdre).
+      // Les avancées-snap restent dans state.pendingAvancees pour
+      // qu'elles s'affichent au prochain compteur (pas perdues).
       if (milestone && milestone._threshold !== undefined) {
         state.milestonesVus = state.milestonesVus.filter(t => t !== milestone._threshold);
         sauvegarderState(state);
@@ -1942,11 +2022,23 @@ app.event("app_mention", async ({event,say,client}) => {
   const QUAL_AVA   = /(?:l[ae']?\s*)?(?:avanc[eé]e?s?|avancement|progress(?:ion)?|progr[eé]s|fait[s]?|acquis|crédit|credit)/;
   const SEP        = /\s+(?:de\s+|[àa]\s+)?/;
   const NUM        = /([\d,.\s]+k?)/;
+  // NUM_MULTI : pour les avancées, on accepte `80+90+150` afin d'empiler
+  // plusieurs ajustements en une commande qui s'afficheront comme des
+  // line-items distincts dans le prochain compteur.
+  const NUM_MULTI  = /([\d,.\sk+]+)/;
 
   const mAddObj = tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b"+SEP.source+QUAL_OBJ.source+SEP.source+NUM.source, "i"));
-  const mAddAva = tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM.source, "i"));
+  const mAddAva = tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM_MULTI.source, "i"));
   const mRemObj = tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_OBJ.source+SEP.source+NUM.source, "i"));
-  const mRemAva = tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM.source, "i"));
+  const mRemAva = tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM_MULTI.source, "i"));
+
+  // parseMontants : "80+90" → [80, 90] ; "150K" → [150000] ; "80, 90" → [80, 90]
+  // Rejette les morceaux non parsables (return [] si rien de valide).
+  const parseMontants = (raw) => {
+    if (!raw) return [];
+    return raw.split(/[+]/).map(s => s.trim()).filter(Boolean)
+      .map(s => extraireObjectif(s)).filter(n => n && !isNaN(n) && n > 0);
+  };
 
   // Helper d'affichage uniforme pour les messages d'ajustement.
   // Montre les 3 chiffres clés (Objectif / Avancée / Reste) avec leur évolution.
@@ -1993,28 +2085,47 @@ app.event("app_mention", async ({event,say,client}) => {
   }
 
   // ADD AVANCÉE : AUGMENTE le reste à faire (annule un close mal compté)
-  // → reste à faire +X€, déjà-fait -X€, objectif total inchangé
+  // → on EMPILE les ajustements dans pendingAvancees pour qu'ils
+  //   apparaissent comme line-items distincts au PROCHAIN compteur sur
+  //   le channel principal. Pas de message public ici, juste un ack
+  //   éphémère côté admin.
   if (mAddAva) {
     if (await refuseIfNotAdmin()) return;
-    const montant = extraireObjectif(mAddAva[1].trim());
-    if (!montant||isNaN(montant)) { await say(`❌ Montant non reconnu.`); return; }
-    const avant = snapshot();
-    state.objectif += montant;
+    const montants = parseMontants(mAddAva[1]);
+    if (montants.length === 0) { await say(`❌ Montant non reconnu.`); return; }
+    montants.forEach(m => {
+      state.objectif += m;
+      state.pendingAvancees.push({ montant: m, sens: 'add', ts: Date.now() });
+    });
     sauvegarderState(state);
-    await say(rendu(`↩️ *+${fmt(montant)}€ au RESTE À FAIRE* _(annulation d'un close)_`, avant, snapshot()));
+    const liste = montants.map(m => `+${fmt(m)}€`).join(", ");
+    try {
+      await client.chat.postEphemeral({
+        channel: event.channel, user: event.user,
+        text: `↩️ *Noté : ${liste}* (annulation de close) — apparaîtra au prochain compteur sur <#${PRINCIPAL_CHANNEL}>.`,
+      });
+    } catch(e) { console.log("postEphemeral add ava :", e.message); }
     return;
   }
 
   // REMOVE AVANCÉE : DIMINUE le reste à faire (enregistre un close loupé)
-  // → reste à faire -X€, déjà-fait +X€, objectif total inchangé
+  // → empilé dans pendingAvancees, affiché au prochain compteur.
   if (mRemAva) {
     if (await refuseIfNotAdmin()) return;
-    const montant = extraireObjectif(mRemAva[1].trim());
-    if (!montant||isNaN(montant)) { await say(`❌ Montant non reconnu.`); return; }
-    const avant = snapshot();
-    state.objectif -= montant;
+    const montants = parseMontants(mRemAva[1]);
+    if (montants.length === 0) { await say(`❌ Montant non reconnu.`); return; }
+    montants.forEach(m => {
+      state.objectif -= m;
+      state.pendingAvancees.push({ montant: m, sens: 'remove', ts: Date.now() });
+    });
     sauvegarderState(state);
-    await say(rendu(`✅ *−${fmt(montant)}€ du RESTE À FAIRE* _(close enregistré)_`, avant, snapshot()));
+    const liste = montants.map(m => `−${fmt(m)}€`).join(", ");
+    try {
+      await client.chat.postEphemeral({
+        channel: event.channel, user: event.user,
+        text: `✅ *Noté : ${liste}* (close enregistré) — apparaîtra au prochain compteur sur <#${PRINCIPAL_CHANNEL}>.`,
+      });
+    } catch(e) { console.log("postEphemeral remove ava :", e.message); }
     return;
   }
 
@@ -2032,15 +2143,25 @@ app.event("app_mention", async ({event,say,client}) => {
   }
 
   // ── REMOVE (sans qualifier — backward compat) : = REMOVE AVANCÉE = close enregistré ──
-  const mRem=tl.match(/\b(?:remove|rmv|supprim(?:e[rz]?)?|retir(?:e[rz]?)?|effa(?:ce[rz]?)?|annul(?:e[rz]?)?|vir(?:e[rz]?)?|d[eé]duis?|deduis?|soustrai[tsr]?|soustraire|enlev(?:e[rz]?)?|enlève|baiss(?:e[rz]?)?|diminu(?:e[rz]?)?|[eé]crase[rz]?)\b\s*[àaáâäde@\s]?\s*([\d,.\s]+k?)/i);
+  // Comme remove avancée explicite : empilé dans pendingAvancees pour
+  // affichage au prochain compteur (avec support du multi-montant `80+90`).
+  const mRem=tl.match(/\b(?:remove|rmv|supprim(?:e[rz]?)?|retir(?:e[rz]?)?|effa(?:ce[rz]?)?|annul(?:e[rz]?)?|vir(?:e[rz]?)?|d[eé]duis?|deduis?|soustrai[tsr]?|soustraire|enlev(?:e[rz]?)?|enlève|baiss(?:e[rz]?)?|diminu(?:e[rz]?)?|[eé]crase[rz]?)\b\s*[àaáâäde@\s]?\s*([\d,.\sk+]+)/i);
   if (mRem) {
     if (await refuseIfNotAdmin()) return;
-    const montant=extraireObjectif(mRem[1].trim());
-    if (!montant||isNaN(montant)){await say(`❌ Montant non reconnu.`);return;}
-    const avant = snapshot();
-    state.objectif-=montant;
+    const montants = parseMontants(mRem[1]);
+    if (montants.length === 0) { await say(`❌ Montant non reconnu.`); return; }
+    montants.forEach(m => {
+      state.objectif -= m;
+      state.pendingAvancees.push({ montant: m, sens: 'remove', ts: Date.now() });
+    });
     sauvegarderState(state);
-    await say(rendu(`✅ *−${fmt(montant)}€ du RESTE À FAIRE* _(close enregistré, alias de \`remove avancée\`)_`, avant, snapshot()));
+    const liste = montants.map(m => `−${fmt(m)}€`).join(", ");
+    try {
+      await client.chat.postEphemeral({
+        channel: event.channel, user: event.user,
+        text: `✅ *Noté : ${liste}* (close enregistré) — apparaîtra au prochain compteur sur <#${PRINCIPAL_CHANNEL}>.`,
+      });
+    } catch(e) { console.log("postEphemeral remove :", e.message); }
     return;
   }
 
@@ -2107,10 +2228,13 @@ app.event("app_mention", async ({event,say,client}) => {
         state.objectifDepart=total; state.objectif=restant; state.modeLabel=periode;
         state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
         state.objectifNbJours=null; state.objectifDateDebut=null;
+        state.pendingAvancees=[]; // reset des ajustements en attente du précédent objectif
         const pctDeja = Math.round((avance/total)*100);
         for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
         sauvegarderState(state);
         await say(`🎯 *Objectif défini* _(${periode})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Déjà fait : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(restant)}€*`);
+        // Broadcast sur le channel principal (sans heure de fin)
+        await broadcastObjectifPrincipal(client, periode, total, restant);
         return;
       }
     }
@@ -2121,6 +2245,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const matchMois  = periode === "le mois";
     state.objectifDepart=nouvel; state.objectif=nouvel; state.modeLabel=periode;
     state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
+    state.pendingAvancees=[]; // reset des ajustements en attente du précédent objectif
     if (matchJours) {
       state.objectifNbJours=parseInt(matchJours[1]); state.objectifDateDebut=getDateStr();
     } else if (matchMois) {
@@ -2131,6 +2256,8 @@ app.event("app_mention", async ({event,say,client}) => {
     sauvegarderState(state);
     const explication = matchJours?` _(jour 1/${state.objectifNbJours}, se met à jour automatiquement)_`:matchMois?` _(${state.objectifNbJours} jours restants ce mois)_`:"";
     await say(`🎯 L'objectif pour *${periode}* est fixé à *${nouvel.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*${explication}`);
+    // Broadcast sur le channel principal (sans heure de fin)
+    await broadcastObjectifPrincipal(client, periode, nouvel, nouvel);
     return;
   }
 

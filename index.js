@@ -84,10 +84,22 @@ if (!state.pendingAvancees) state.pendingAvancees = [];
 // sans montant, puis éditent plus tard pour ajouter "179MRR". Avant
 // cette fonctionnalité, ces closes étaient perdus car l'édition arrivait
 // alors que le ts n'était ni dans buffer ni dans tsDejaComptes.
-// On détecte "close" / "closé" / "closed" comme signal, on pré-bufferise
-// le ts, puis l'édition vient renseigner le montant et promouvoir en
-// close normal. Zéro doublon possible : l'état pending est persistant.
-const RE_CLOSE_KEYWORD = /\bclos[eéèêë]d?[es]?\b/i;
+// On détecte les mots-clés signalant un deal à comptabiliser, on
+// pré-bufférise le ts, puis l'édition vient renseigner le montant et
+// promouvoir en close normal. Zéro doublon possible : l'état pending
+// est persistant.
+//
+// Mots-clés acceptés (case-insensitive, plusieurs orthographes / typos) :
+//   close   → close, closé, closée, closes, closed
+//   upsell  → upsell, upsells, upselled, upselling, up-sell, up sell, upcell
+//   renew   → renew, renewal, renewals, renewed, renewing, renewable
+//   renouv* → renouvellement, renouvelement, renouvelée, renouveler, renouvèle
+//   extens* → extension, extensions, extentions (typo)
+//   extend* → extend, extended, extending
+// ⚠️ On utilise (?:^|\W) ... (?=\W|$) au lieu de \b...\b parce que `\b`
+// échoue après un caractère accentué (ex: "closé " — `é` n'est pas un word
+// char en JS, donc le boundary trailing ne match pas après `é`).
+const RE_CLOSE_KEYWORD = /(?:^|\W)(?:clos[eéèêë]d?[es]?|up[\s\-]?[sc]ells?\w*|renew\w*|renouv\w*|extens?\w*|extend\w*)(?=\W|$)/i;
 const PENDING_TTL_MS   = 24 * 60 * 60 * 1000;   // 24h
 const PENDING_MAX      = 50;
 function purgerPendingCloses() {

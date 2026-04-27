@@ -1305,13 +1305,12 @@ function construireCalcul(deals, ancienObjectif, restant, pendingAvancees = []) 
   const ancienAffiche = ancienObjectif + sumRem - sumAdd;
   const debut  = `*${fmt(ancienAffiche)}€*`;
   const partsDeals = deals.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${fmt(l)}€`);
-  // Pending avancées : line-items distincts, suffixés "(avancée)" pour
-  // distinguer visuellement des closes commerciaux. 'add' = +X (annulation),
-  // 'remove' = -X (close enregistré).
+  // Pending avancées : line-items mêlés aux deals, sans label spécifique.
+  // 'add' = +X (annulation d'un close), 'remove' = -X (close enregistré).
   const partsAvan  = pendingAvancees.map(p =>
     p.sens === 'add'
-      ? `+  ${fmt(p.montant)}€ _(avancée)_`
-      : `−  ${fmt(p.montant)}€ _(avancée)_`
+      ? `+  ${fmt(p.montant)}€`
+      : `−  ${fmt(p.montant)}€`
   );
   const soustr = [...partsDeals, ...partsAvan].join("  ");
   const res    = `*${fmt(restant)}€*`;
@@ -1382,12 +1381,31 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
 // on log mais on ne fait pas planter le handler — l'ack sur test reste.
 async function broadcastObjectifPrincipal(client, periode, total, restant) {
   const fmt = n => Math.max(0,n).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
+  const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   const periodeUpper = periode.toUpperCase();
+
+  // Pour un objectif multi-jours, on enrichit avec la plage jour début → jour fin
+  // (ex: "de Lundi (aujourd'hui) à Jeudi") en se basant sur state.objectifNbJours
+  // qui vient d'être set par le handler appelant.
+  let plageJours = "";
+  const matchJours = periode.match(/^les (\d+) prochains jours$/);
+  if (matchJours) {
+    const n = parseInt(matchJours[1]);
+    const { jour } = getNowParis();
+    const finIdx = Math.min(6, jour + n - 1);
+    const debutNom = cap(JOURS[jour] || "");
+    const finNom   = cap(JOURS[finIdx] || "");
+    if (debutNom && finNom) {
+      plageJours = `_de ${debutNom} (aujourd'hui) à ${finNom}_`;
+    }
+  }
+
   const lignes = [
     `🎯  *NOUVEL OBJECTIF — ${periodeUpper}*`,
-    ``,
-    `Total à faire : *${fmt(total)}€*`,
   ];
+  if (plageJours) lignes.push(plageJours);
+  lignes.push(``);
+  lignes.push(`Total à faire : *${fmt(total)}€*`);
   if (restant !== total) {
     lignes.push(`Reste à faire : *${fmt(restant)}€*  _(${fmt(total - restant)}€ déjà fait)_`);
   }

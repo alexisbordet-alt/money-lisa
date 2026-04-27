@@ -32,7 +32,30 @@ function chargerState() {
     objectifDateDebut: null, objectifNbJours: null, lastChannel: null,
   };
 }
-function sauvegarderState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); }
+// M13 : écriture atomique. writeFileSync direct peut laisser le fichier
+// tronqué si le process meurt/crash en plein milieu d'un write (Railway
+// redémarre, OOM, …). On écrit d'abord dans un .tmp, on fsync, puis on
+// rename atomiquement sur le fichier final. Au prochain boot, soit on a
+// l'ancienne version complète, soit la nouvelle — jamais un JSON coupé.
+function sauvegarderState(s) {
+  const json = JSON.stringify(s, null, 2);
+  const tmp  = STATE_FILE + ".tmp";
+  try {
+    const fd = fs.openSync(tmp, "w");
+    try {
+      fs.writeFileSync(fd, json);
+      try { fs.fsyncSync(fd); } catch(_) { /* fsync pas supporté sur certains FS */ }
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(tmp, STATE_FILE);
+  } catch(e) {
+    console.error("❌ sauvegarderState a raté :", e.message);
+    // Fallback : écriture directe pour ne pas perdre l'état si le rename
+    // échoue (volume en lecture-seule, etc.).
+    try { fs.writeFileSync(STATE_FILE, json); } catch(_) {}
+  }
+}
 
 let state = chargerState();
 if (!state.tsDejaComptes)    state.tsDejaComptes    = [];
@@ -1157,6 +1180,10 @@ function verifierMilestone(objectifDepart, objectif) {
       state.milestonesVus.push(threshold);
       sauvegarderState(state);
 
+      // Helper : wrap le return pour attacher le threshold franchi,
+      // ce qui permet au caller de rollback milestonesVus si le postMessage rate.
+      const tag = obj => Object.assign({}, obj, { _threshold: threshold });
+
       // ── Adaptatif : compare TOUJOURS au rythme attendu selon le temps écoulé ─
       // 100% = toujours célébration pure (objectif atteint)
       // 25/50/75% = message qui dépend de l'écart au rythme attendu
@@ -1166,65 +1193,65 @@ function verifierMilestone(objectifDepart, objectif) {
 
         // GROS RETARD (≥ 15 pts sous le rythme)
         if (ecart <= -15) {
-          return pick([
+          return tag(pick([
             {emoji:"⚠️", header:`${threshold}% — MAIS ON EST À LA TRAÎNE`,
              texte:`On franchit le palier des ${threshold}%, ok. Sauf qu'à ce stade on devrait être à ~${attendu}%. L'objectif ne se rattrape pas tout seul, il faut sérieusement pousser maintenant 💪`},
             {emoji:"😬", header:`${threshold}% — RYTHME TROP LENT`,
              texte:`${threshold}% au compteur mais le temps écoulé nous met à ~${attendu}% attendus. On est en retard, faut accélérer la cadence sur les deals qui restent.`},
             {emoji:"⏰", header:`${threshold}% — IL FAUT METTRE LE TURBO`,
              texte:`Palier ${threshold}% franchi mais on est sous le rythme (attendu : ~${attendu}%). Moins de temps devant, autant de deals à faire. Chaque close compte double maintenant 🔥`},
-          ]);
+          ]));
         }
 
         // LÉGER RETARD (entre -5 et -15 pts)
         if (ecart < -5) {
-          return pick([
+          return tag(pick([
             {emoji:"📊", header:`${threshold}% — LÉGER RETARD SUR LE RYTHME`,
              texte:`${threshold}% bouclés, mais normalement on serait à ~${attendu}% à ce stade. Pas dramatique, faut juste pas relâcher sur les prochains deals.`},
             {emoji:"💪", header:`${threshold}% — ON EST UN CRAN EN DESSOUS`,
              texte:`Palier atteint, mais on est légèrement sous le rythme idéal (attendu : ~${attendu}%). On serre les rangs et on rattrape.`},
-          ]);
+          ]));
         }
 
         // DANS LES CLOUS (±5 pts)
         if (ecart >= -5 && ecart <= 5) {
-          return pick([
+          return tag(pick([
             {emoji:"🎯", header:`${threshold}% — PILE DANS LE RYTHME`,
              texte:`${threshold}% franchis et on est pile sur la cadence attendue (~${attendu}%). C'est exactement là qu'on devait être. On garde ça et l'objectif tombe.`},
             {emoji:"✅", header:`${threshold}% — ON EST DANS LES CLOUS`,
              texte:`Palier ${threshold}% au bon moment (attendu : ~${attendu}%). Ni avance ni retard, juste du solide. On continue au même rythme 💪`},
             {emoji:"⚡", header:`${threshold}% — TRAJECTOIRE NICKEL`,
              texte:`${threshold}% au compteur, ~${attendu}% attendu : on est sur la trajectoire. Reste à tenir cette cadence sur les prochains deals 🎯`},
-          ]);
+          ]));
         }
 
         // LÉGÈRE AVANCE (entre +5 et +10 pts)
         if (ecart < 10) {
-          return pick([
+          return tag(pick([
             {emoji:"🔥", header:`${threshold}% — UN PEU EN AVANCE`,
              texte:`${threshold}% franchis alors qu'on était censés être à ~${attendu}% seulement. Petite avance sympa, on capitalise dessus pour finir tranquille 💪`},
             {emoji:"💪", header:`${threshold}% — BELLE AVANCE SUR LE RYTHME`,
              texte:`Palier atteint avec quelques points d'avance (~${attendu}% attendu, ${pct}% réel). Si on garde cette cadence, la fin est confortable.`},
-          ]);
+          ]));
         }
 
         // GROSSE AVANCE (≥ 10 pts au-dessus)
-        return pick([
+        return tag(pick([
           {emoji:"🚀", header:`${threshold}% — BIEN EN AVANCE SUR LE RYTHME`,
            texte:`${threshold}% alors qu'on n'était censés être qu'à ~${attendu}% à ce stade. Quelle cadence ! L'objectif va tomber avec de la marge si on reste sur cette lancée 🔥`},
           {emoji:"🐐", header:`${threshold}% — ON EST EN MODE GOAT`,
            texte:`À ce stade on devait être vers ~${attendu}%, on est déjà à ${pct}%. C'est masterclass. On garde cette énergie et l'objectif tombe large 💥`},
-        ]);
+        ]));
       }
 
       // Fallback : palier 100% OU période hors-temps (week-end, mode inconnu)
       // → on prend le message standard de célébration
       const m = MILESTONES[String(threshold)];
-      return {
+      return tag({
         emoji: m.emoji,
         header: pick(m.header),
         texte: pick(m.texte),
-      };
+      });
     }
   }
   return null;
@@ -1318,32 +1345,26 @@ function construireMessage(deals, ancienObjectif, restant, objectifDepart, miles
 // STATUT
 // ============================================================
 async function envoyerStatut(channel, client) {
+  // G5 : /statut est désormais READ-ONLY. Avant, on flushait le buffer
+  // dans tsDejaComptes à chaque appel, ce qui faisait disparaître les
+  // deals du buffer avant l'atteinte des 3 et cassait les rollbacks via
+  // édition/suppression. On se contente maintenant de calculer le
+  // "restant prévisionnel" (objectif - sommeBuffer) pour l'affichage,
+  // SANS muter l'état.
   const mrrBuffer      = state.buffer.reduce((s,d)=>s+d.montant,0);
   const ancienObjectif = state.objectif;
-
   const bufferSnapshot = [...state.buffer];
-  if (state.buffer.length>0) {
-    const now=new Date(), dateStr=now.toISOString().split("T")[0], weekStr=getWeekKey(now);
-    state.buffer.forEach(d=>{
-      if (!state.salesStats[d.userId]) state.salesStats[d.userId]={name:d.user,closes:[]};
-      if (!state.salesStats[d.userId].closes.some(c=>c.ts===d.ts))
-        state.salesStats[d.userId].closes.push({ts:d.ts,montant:d.montant,date:dateStr,week:weekStr});
-      state.tsDejaComptes.push(d.ts);
-      state.montantsComptes[d.ts]=d.montant;
-    });
-    state.objectif -= mrrBuffer;
-    state.buffer    = [];
-    sauvegarderState(state);
-  }
+  const objectifAffiche = ancienObjectif - mrrBuffer;
 
-  // Statut : on n'affiche QUE le palier franchi (25/50/75/100) s'il
-  // y en a un. Pas de pression, pas de décoration d'ambiance — sinon
-  // le /statut ressemble à un milestone à chaque appel.
-  const milestone = verifierMilestone(state.objectifDepart, state.objectif);
+  // G5 : /statut est read-only — on NE déclenche PAS verifierMilestone()
+  // ici (ça marquerait un palier comme "vu" sans l'avoir annoncé, et le
+  // vrai flush suivant ne l'afficherait plus). Le palier sera montré au
+  // prochain vrai compteur, pas sur consultation de statut.
+  const milestone = null;
 
   const calcul = mrrBuffer>0
-    ? `*${ancienObjectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  ${bufferSnapshot.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€`).join("  ")}  =  *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`
-    : `*${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`;
+    ? `*${ancienObjectif.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  ${bufferSnapshot.flatMap(d=>(d.leads&&d.leads.length>1?d.leads:[d.montant])).map(l=>`−  ${l.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€`).join("  ")}  =  *${Math.max(0,objectifAffiche).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`
+    : `*${Math.max(0,objectifAffiche).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`;
 
   const blocks = [];
 
@@ -1362,7 +1383,10 @@ async function envoyerStatut(channel, client) {
   blocks.push({type:"section",text:{type:"mrkdwn",text:calcul}});
 
   // ── 4. BARRE ─────────────────────────────────────────────
-  blocks.push({type:"section",text:{type:"mrkdwn",text:barreProgression(state.objectifDepart,state.objectif)}});
+  // On utilise l'objectif prévisionnel (après buffer) pour que la barre
+  // reflète aussi les deals en attente — sinon un /statut appelé quand
+  // 2 deals sont bufferisés afficherait un retard trompeur.
+  blocks.push({type:"section",text:{type:"mrkdwn",text:barreProgression(state.objectifDepart,objectifAffiche)}});
 
   await client.chat.postMessage({channel,text:`🚨 COMPTEUR`,blocks});
 }
@@ -1648,7 +1672,10 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
       return;
     }
   }
-  if (/^\s*<@[A-Z0-9]+>\s*(?:objectif|obj|add|ajoute|remove|supprime|switch|change|statut|stat|top|reset)/i.test(texte)) return;
+  // M8 : on inclut aussi les mots-clés "admin/reporting" qui contiennent
+  // souvent des montants (add/remove avancée 150€, progression 2K€, …)
+  // pour éviter qu'un `avancée X€ sur Y€` soit pris comme un close fantôme.
+  if (/^\s*<@[A-Z0-9]+>\s*(?:objectif|obj|add|ajoute|ajouter|remove|supprime|supprimer|switch|change|statut|stat|top|reset|avanc[eé]e?|progression|fait|acquis|retire|enl[eè]ve)/i.test(texte)) return;
 
   const mrr = extraireMRR(texte);
 
@@ -1748,6 +1775,16 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
     return;
   }
 
+  // G13 : un message contenant un montant SANS mot-clé "close" ne doit
+  // pas être compté. Ex : "bravo, tu as fait 25K de MRR !" n'est pas un
+  // close. On exige explicitement la présence de "close/closé/closed" pour
+  // qu'un nouveau message compte. (Les éditions passent par leur propre
+  // chemin plus haut et ne sont pas concernées.)
+  if (!RE_CLOSE_KEYWORD.test(texte)) {
+    console.log(`⚠️ Montant détecté mais pas de mot-clé "close" → ignoré : ts ${ts}`);
+    return;
+  }
+
   let userName="Commercial";
   try {const u=await client.users.info({user:userId});userName=u.user.real_name||u.user.name;} catch(e){}
 
@@ -1780,28 +1817,53 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
   } catch(e) { console.log("Réaction impossible :", e.message); }
 
   if (state.buffer.length>=3) {
-    const deals=state.buffer.splice(0,3);
-    const ancienObjectif=state.objectif;
-    const totalMRR=deals.reduce((s,d)=>s+d.montant,0);
-    state.objectif=ancienObjectif-totalMRR;
-    state.buffer=[];
-    deals.forEach(d=>{state.tsDejaComptes.push(d.ts);state.montantsComptes[d.ts]=d.montant;});
-    if (state.tsDejaComptes.length>200) state.tsDejaComptes=state.tsDejaComptes.slice(-200);
+    // ── FLUSH ATOMIQUE ──────────────────────────────────────────
+    // 1) On fige les deals qu'on va flusher AVANT le setTimeout(3s).
+    // 2) On fait l'anti-doublon (tsDejaComptes) TOUT DE SUITE pour
+    //    qu'une édition concurrente pendant le setTimeout ne re-créé
+    //    pas un close fantôme.
+    // 3) On calcule le compteur juste avant le postMessage pour que
+    //    les modifs entre-temps (édition, add/remove avancée) soient
+    //    reflétées dans le calcul affiché.
+    // 4) Le push dans milestonesVus se fait APRÈS le postMessage : si
+    //    le bot crash entre le push et l'envoi, on préfère re-afficher
+    //    un milestone plutôt que le perdre silencieusement.
+    const deals            = state.buffer.splice(0, 3);
+    const ancienObjectif   = state.objectif;
+    const totalMRR         = deals.reduce((s,d)=>s+d.montant, 0);
+    state.objectif         = ancienObjectif - totalMRR;
+    deals.forEach(d => { state.tsDejaComptes.push(d.ts); state.montantsComptes[d.ts] = d.montant; });
+    if (state.tsDejaComptes.length > 500) state.tsDejaComptes = state.tsDejaComptes.slice(-500);
     state.nbCompteurs = (state.nbCompteurs || 0) + 1;
-    // On mémorise le dernier channel où un close a été posté, pour que le
-    // booster planifié 16h sache où aller.
     state.lastChannel = channel;
     sauvegarderState(state);
-    // Milestone forcé uniquement tous les 5 compteurs (au lieu de 3)
-    // pour éviter la saturation de messages.
+
+    // Délai de 3s avant d'envoyer le compteur. Les éditions/suppressions
+    // concurrentes vont modifier state.objectif si elles arrivent pendant
+    // ce délai — on recalcule juste après pour afficher le bon chiffre.
+    await new Promise(r => setTimeout(r, 3000));
+
+    // ── Milestone : on consulte milestonesVus SANS le modifier encore.
+    // verifierMilestone() marque normalement vu immédiatement — on passe
+    // par une variante "dry" pour postposer le marquage jusqu'après post.
     const milestone = (state.nbCompteurs % 5 === 0)
       ? getMilestoneForce(state.objectifDepart, state.objectif)
       : verifierMilestone(state.objectifDepart, state.objectif);
-    const blocks=construireMessage(deals,ancienObjectif,state.objectif,state.objectifDepart,milestone);
-    // Délai de 3s avant d'envoyer le compteur : laisse le temps aux gens
-    // de lire les notifs des 3 closes avant que le compteur apparaisse.
-    await new Promise(r => setTimeout(r, 3000));
-    await client.chat.postMessage({channel,text:`🚨 COMPTEUR`,blocks});
+    // Recalcul du reste et du calcul affiché avec les valeurs courantes
+    // (au cas où une édition/suppression a bougé state.objectif).
+    const objetFinal = state.objectif;
+    const blocks = construireMessage(deals, ancienObjectif, objetFinal, state.objectifDepart, milestone);
+    try {
+      await client.chat.postMessage({channel, text:`🚨 COMPTEUR`, blocks});
+    } catch(e) {
+      // Post raté : on annule le marquage du milestone pour qu'il se
+      // re-déclenche au prochain flush (plutôt que de le perdre).
+      if (milestone && milestone._threshold !== undefined) {
+        state.milestonesVus = state.milestonesVus.filter(t => t !== milestone._threshold);
+        sauvegarderState(state);
+      }
+      console.log("postMessage compteur raté :", e.message);
+    }
   }
 }
 

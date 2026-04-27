@@ -96,10 +96,15 @@ if (!state.pendingAvancees) state.pendingAvancees = [];
 //   renouv* → renouvellement, renouvelement, renouvelée, renouveler, renouvèle
 //   extens* → extension, extensions, extentions (typo)
 //   extend* → extend, extended, extending
-// ⚠️ On utilise (?:^|\W) ... (?=\W|$) au lieu de \b...\b parce que `\b`
-// échoue après un caractère accentué (ex: "closé " — `é` n'est pas un word
-// char en JS, donc le boundary trailing ne match pas après `é`).
-const RE_CLOSE_KEYWORD = /(?:^|\W)(?:clos[eéèêë]d?[es]?|up[\s\-]?[sc]ells?\w*|renew\w*|renouv\w*|extens?\w*|extend\w*)(?=\W|$)/i;
+//   mrr     → MRR (acronyme — souvent collé au montant : "179MRR", "66€MRR")
+// ⚠️ Pour close/upsell/etc on utilise (?:^|\W) ... (?=\W|$) au lieu de
+// \b...\b parce que `\b` échoue après un caractère accentué (ex: "closé "
+// — `é` n'est pas un word char en JS, donc le boundary trailing ne match
+// pas après `é`).
+// ⚠️ Pour `mrr` on autorise un chiffre juste avant (ex "179MRR") via
+// (?:^|[^a-z]) : avec le flag /i, [^a-z] équivaut à [^a-zA-Z], donc les
+// chiffres et symboles sont OK comme préfixe.
+const RE_CLOSE_KEYWORD = /(?:(?:^|\W)(?:clos[eéèêë]d?[es]?|up[\s\-]?[sc]ells?\w*|renew\w*|renouv\w*|extens?\w*|extend\w*)(?=\W|$)|(?:^|[^a-z])mrr(?=\W|$))/i;
 const PENDING_TTL_MS   = 24 * 60 * 60 * 1000;   // 24h
 const PENDING_MAX      = 50;
 function purgerPendingCloses() {

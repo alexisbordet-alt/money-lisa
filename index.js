@@ -92,6 +92,12 @@ if (state.modeSpecial === undefined)             state.modeSpecial = null;
 if (state.modeSpecialFin === undefined)          state.modeSpecialFin = null;
 if (state.asterixAnnonceEnAttente === undefined) state.asterixAnnonceEnAttente = false;
 if (state.asterixCompteurs === undefined)        state.asterixCompteurs = 0;
+// Indexes des messages déjà servis dans chacun des 2 pools, pour ne pas
+// répéter un même message tant que tout le pool n'a pas été parcouru.
+// Reset quand toutes les positions du pool ont été vues (ou à la
+// (ré)activation du mode).
+if (!Array.isArray(state.asterixCourtVus)) state.asterixCourtVus = [];
+if (!Array.isArray(state.asterixFortVus))  state.asterixFortVus  = [];
 
 // ── Pré-buffer des "Close" sans montant ──────────────────────
 // Certains commerciaux (ex : Abdel) postent d'abord "Close Chez Machin"
@@ -200,6 +206,22 @@ function pickRare(arr, proba = 0.18) {
 function pickCEO()            { return pickRare(MESSAGES_CEO, 0.18); }
 function pickPhilippe()       { return pickRare(MESSAGES_PHILIPPE, 0.15); }
 function pickPhilippePression(){ return pickRare(MESSAGES_PHILIPPE_PRESSION, 0.15); }
+
+// pickUnseen : tire un message d'un pool en évitant ceux déjà servis.
+// `vusKey` = clé string dans `state` qui contient un Array d'indexes vus.
+// Si tout le pool a été parcouru, on reset la liste pour repartir.
+// Mute `state[vusKey]` mais ne sauvegarde PAS — c'est l'appelant qui le
+// fera dans la même transaction que ses autres modifs.
+function pickUnseen(pool, vusKey) {
+  if (!Array.isArray(state[vusKey])) state[vusKey] = [];
+  if (state[vusKey].length >= pool.length) state[vusKey] = [];
+  const dispoIdx = pool
+    .map((_, i) => i)
+    .filter(i => !state[vusKey].includes(i));
+  const idx = dispoIdx[Math.floor(Math.random() * dispoIdx.length)];
+  state[vusKey].push(idx);
+  return pool[idx];
+}
 function getWeekKey(date) {
   const d = new Date(date);
   d.setHours(0,0,0,0);
@@ -2067,29 +2089,30 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
     // ── MODE ASTÉRIX : injection messages + annonce d'ouverture ──
     // 1) On vérifie d'abord l'expiration (au cas où le timer ait raté).
     // 2) Si mode actif :
-    //    - Pioche un message du pool COURT → injecté juste sous le titre.
-    //    - Tous les 3 compteurs : pioche un message du pool FORT en plus,
-    //      placé AVANT le court (pour que le "milestone bonus" s'affiche
-    //      en premier dans l'œil du lecteur).
+    //    - On incrémente le compteur depuis activation.
+    //    - TOUS LES 3 COMPTEURS (et seulement à ces moments-là), on pioche
+    //      UN seul message — soit du pool COURT, soit du pool FORT (50/50,
+    //      jamais les deux). Anti-répétition via pickUnseen : on ne ressort
+    //      pas un message déjà vu tant que tout le pool n'est pas épuisé.
+    //    - Compteurs 1, 2, 4, 5, 7, 8... → AUCUN message Astérix injecté.
     //    - Si annonce d'ouverture en attente : on la POST séparément AVANT
     //      le compteur sur PRINCIPAL_CHANNEL, puis on baisse le flag.
     verifierExpirationModeAsterix();
-    let asterixCourt = null, asterixFort = null;
+    let asterixMsg = null;
     if (state.modeSpecial === "asterix") {
-      asterixCourt = pick(POOL_ASTERIX_COURT);
       state.asterixCompteurs = (state.asterixCompteurs || 0) + 1;
       if (state.asterixCompteurs % 3 === 0) {
-        asterixFort = pick(POOL_ASTERIX_FORT);
+        // Tirage 50/50 entre pool court et pool fort.
+        const usePoolFort = Math.random() < 0.5;
+        asterixMsg = usePoolFort
+          ? pickUnseen(POOL_ASTERIX_FORT,  "asterixFortVus")
+          : pickUnseen(POOL_ASTERIX_COURT, "asterixCourtVus");
+        console.log(`🛡️ Astérix : compteur n°${state.asterixCompteurs} → ${usePoolFort ? "FORT" : "COURT"}`);
       }
-      // Injection dans les blocks juste après le titre (index 0) — ou
-      // après le bloc milestone s'il y en a un (index 1).
-      const insertAt = milestone ? 2 : 1;
-      const inject = [];
-      if (asterixFort) {
-        inject.push({type:"section",text:{type:"mrkdwn",text:asterixFort}});
+      if (asterixMsg) {
+        const insertAt = milestone ? 2 : 1;
+        blocks.splice(insertAt, 0, {type:"section",text:{type:"mrkdwn",text:asterixMsg}});
       }
-      inject.push({type:"section",text:{type:"mrkdwn",text:asterixCourt}});
-      blocks.splice(insertAt, 0, ...inject);
     }
 
     // Annonce d'ouverture (1 seule fois, au tout premier compteur du mode).
@@ -2374,6 +2397,8 @@ app.event("app_mention", async ({event,say,client}) => {
     state.modeSpecialFin          = fin;
     state.asterixAnnonceEnAttente = true;
     state.asterixCompteurs        = 0;
+    state.asterixCourtVus         = []; // reset anti-répétition
+    state.asterixFortVus          = [];
     sauvegarderState(state);
     const finStr = new Date(fin).toLocaleString("fr-FR", {
       timeZone: "Europe/Paris", weekday:"long", day:"2-digit", month:"long",

@@ -2234,19 +2234,19 @@ app.event("app_mention", async ({event,say,client}) => {
   const NUM_MULTI  = /([\d,.\sk+]+)/;
 
   // On accepte les 2 ordres : `add avancée 7900` (qual→num) ET `add 7900 avancée` (num→qual).
-  // Pour l'ordre num→qual, on capture le nombre en groupe 1 (le qualifier suit, pas capturé).
+  // SEP gère les prépositions ("de"/"à"/"a") entre les morceaux dans les 2 sens.
   const mAddObj =
        tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b"+SEP.source+QUAL_OBJ.source+SEP.source+NUM.source, "i"))
-    || tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b\\s+"+NUM.source+"\\s+"+QUAL_OBJ.source, "i"));
+    || tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b"+SEP.source+NUM.source+SEP.source+QUAL_OBJ.source, "i"));
   const mAddAva =
        tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM_MULTI.source, "i"))
-    || tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b\\s+"+NUM_MULTI.source+"\\s+"+QUAL_AVA.source, "i"));
+    || tl.match(new RegExp("\\b"+VERBES_ADD.source+"\\b"+SEP.source+NUM_MULTI.source+SEP.source+QUAL_AVA.source, "i"));
   const mRemObj =
        tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_OBJ.source+SEP.source+NUM.source, "i"))
-    || tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b\\s+"+NUM.source+"\\s+"+QUAL_OBJ.source, "i"));
+    || tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+NUM.source+SEP.source+QUAL_OBJ.source, "i"));
   const mRemAva =
        tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM_MULTI.source, "i"))
-    || tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b\\s+"+NUM_MULTI.source+"\\s+"+QUAL_AVA.source, "i"));
+    || tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+NUM_MULTI.source+SEP.source+QUAL_AVA.source, "i"));
 
   // parseMontants : "80+90" → [80, 90] ; "150K" → [150000] ; "80, 90" → [80, 90]
   // Rejette les morceaux non parsables (return [] si rien de valide).
@@ -2420,8 +2420,8 @@ app.event("app_mention", async ({event,say,client}) => {
         text:
           `🛡️ *Mode Astérix activé* — auto-expire le *${finStr}*.\n` +
           `• L'annonce d'ouverture partira sur <#${PRINCIPAL_CHANNEL}> au prochain compteur (3 deals).\n` +
-          `• Chaque compteur affichera un message du pool court.\n` +
-          `• Tous les 3 compteurs : milestone bonus du pool fort en plus.\n` +
+          `• Tous les 3 compteurs : 1 milestone Astérix injectée — pool court ou pool fort, tirage 50/50, jamais les deux.\n` +
+          `• Anti-répétition : pas 2 fois la même milestone tant que le pool n'est pas épuisé.\n` +
           `• Force le retour avant l'expiration : \`@Money Lisa mode normal\`.`,
       });
     } catch(e) { console.log("postEphemeral mode asterix :", e.message); }

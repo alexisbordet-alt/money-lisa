@@ -79,6 +79,20 @@ if (!state.pendingCloses)    state.pendingCloses    = [];
 // — sens 'add'    ajoute    au reste à faire (annulation d'un close).
 if (!state.pendingAvancees) state.pendingAvancees = [];
 
+// ── Mode spécial Astérix ──────────────────────────────────────
+// Mode temporaire activé manuellement pour les semaines "tout casser" :
+// - state.modeSpecial : "asterix" ou null (= classique)
+// - state.modeSpecialFin : timestamp ms d'auto-expiration (jeudi 18h30 Paris)
+// - state.asterixAnnonceEnAttente : true tant que l'annonce d'ouverture
+//   n'a pas été postée (envoyée AU PREMIER COMPTEUR après activation, sur
+//   le channel principal, pas immédiatement à l'activation)
+// - state.asterixCompteurs : nombre de compteurs depuis activation,
+//   utilisé pour faire tomber le pool "fort" tous les 3 compteurs
+if (state.modeSpecial === undefined)             state.modeSpecial = null;
+if (state.modeSpecialFin === undefined)          state.modeSpecialFin = null;
+if (state.asterixAnnonceEnAttente === undefined) state.asterixAnnonceEnAttente = false;
+if (state.asterixCompteurs === undefined)        state.asterixCompteurs = 0;
+
 // ── Pré-buffer des "Close" sans montant ──────────────────────
 // Certains commerciaux (ex : Abdel) postent d'abord "Close Chez Machin"
 // sans montant, puis éditent plus tard pour ajouter "179MRR". Avant
@@ -625,6 +639,88 @@ const MESSAGES_DEPASSEMENT = [
   {header:"C'EST LA DINGUERIE TOTALE LES GARS 💥🏆",texte:`Là c'est un autre niveau. ${pickCEO()} On fixe un nouvel objectif ?`},
   {header:"CALMA CALMA — MAIS CONTINUEZ 🔥😅",texte:"Vous avez dépassé l'objectif. C'est carré. C'est zinzin. On est ensemble, bravo la team 🙌"},
 ];
+
+// ============================================================
+// MODE ASTÉRIX — pools de messages spéciaux
+// ------------------------------------------------------------
+// Activé manuellement avec `@Money Lisa mode asterix` dans le channel
+// test. Désactivable via `mode normal` ou auto-expire jeudi 18h30 Paris.
+//
+// - POOL_ASTERIX_COURT : message ajouté à CHAQUE compteur sous le titre.
+// - POOL_ASTERIX_FORT  : milestone bonus ajouté tous les 3 compteurs en
+//   plus du court. Plus long, plus pressurant, ton "milestone hebdo".
+// - ASTERIX_ANNONCE    : message d'ouverture envoyé sur le channel
+//   principal au PREMIER compteur après activation (pas immédiatement à
+//   la commande, on attend qu'un compteur tombe pour faire l'effet).
+// ============================================================
+const POOL_ASTERIX_COURT = [
+  "🎢 Encore un close et la file d'OzIris raccourcit — on va finir par y monter ensemble.",
+  "🧙 Panoramix sort le chaudron — chaque close c'est une dose de potion en plus.",
+  "⚡ Tonnerre de Zeus juste à côté — on l'entend déjà gronder, encore quelques deals.",
+  "🍷 Le festin gaulois nous attend — chaque close c'est un verre qu'on remplit.",
+  "🐗 Le sanglier rôtit déjà — chaque close c'est un Gaulois de plus à table.",
+  "🛡️ Astérix prépare la louche — encore quelques closes et on goûte la potion.",
+  "🎢 Goudurix tourne à fond — chaque deal c'est un loop de plus.",
+  "🐉 Le Trace du Hourra attend qu'on flingue le compteur — on y est presque.",
+  "⚓ Le Grand Splatch est sous pression — chaque deal nous rapproche du saut.",
+  "🏛️ Le Vol d'Icare nous appelle — encore quelques deals et on décolle.",
+  "🪄 Panoramix mélange les ingrédients — un close de plus et la potion est prête.",
+  "🐎 Idéfix court devant la charrette — chaque close raccourcit la distance jusqu'au village.",
+];
+
+const POOL_ASTERIX_FORT = [
+  "🛡️⚡ *PANORAMIX A SORTI LE CHAUDRON* — la potion bout, chaque close c'est une dose en plus. On est plus très loin du verre final, on lâche rien la team 🔥",
+  "🐗🔥 *OBÉLIX A FINI SON MENHIR* — il attend qu'on termine l'objectif pour partir. Chaque deal le fait sourire, encore un effort et on bouge tous ensemble 💪",
+  "⚡👑 *ABRARACOURCIX SUR SON BOUCLIER* — le chef regarde l'équipe. C'est cette semaine qu'on prouve qu'on mérite la journée Astérix, allez les Gaulois 🛡️",
+  "🎢🔥 *OZ IRIS À TOUT PRIX* — la file raccourcit deal après deal. On enchaîne, on monte tous dans le coaster ensemble. Plus de temps mort, on envoie 🚀",
+  "🪕 *ASSURANCETOURIX VEUT CHANTER* — vaut mieux closer vite avant qu'il sorte la harpe. Chaque deal nous rapproche du festin, allez la team 🐗",
+  "🐗🍖 *LE FESTIN APPROCHE* — Obélix attend de planter sa fourchette dans le sanglier. Chaque deal nous rapproche de la table, on va se la mériter 💪",
+  "🛡️⚔️ *LES ROMAINS TREMBLENT* — chaque close c'est une légion qui s'écroule. La team est lancée, on écrase tout sur notre passage. Garde la cadence 🔥",
+  "🧙‍♂️🔥 *PANORAMIX EST FIER DE LA TEAM* — la potion magique avance grâce à votre frappe. Encore quelques deals et on la boit ensemble avant de partir 🛡️",
+  "🐎💨 *IDÉFIX EST EN TÊTE DE COURSE* — il aboie pour qu'on le rattrape. Chaque close c'est un pas de plus vers la charrette d'Obélix. On accélère 🚀",
+  "⚡🏛️ *TONNERRE DE ZEUS RUGIT* — chaque deal fait trembler les rails. La team est en feu, encore quelques closes et on décolle tous ensemble 🔥",
+  "🐗🔥 *LE VILLAGE EST AVEC NOUS* — Astérix, Obélix, Falbala, tout le monde regarde le compteur. Chaque close c'est un Gaulois qui lève le bras, on est portés 💪",
+  "🛡️🍺 *LE PORTAIL DU PARC SE RAPPROCHE* — chaque deal c'est un mètre de moins devant l'entrée. La journée Astérix se gagne maintenant, deal par deal. ALLEZ LA TEAM 🔥",
+];
+
+const ASTERIX_ANNONCE =
+  `🛡️  *SEMAINE HISTORIQUE — ON DÉFONCE LE COMPTEUR*  🐗\n\n` +
+  `La team, on se le dit franchement : on est en retard sur l'objectif et c'est pas acceptable. Cette semaine, c'est pas une semaine comme les autres — c'est LE moment de faire l'histoire.\n\n` +
+  `Voilà le deal : si d'ici JEUDI on explose le compteur, toute l'équipe sales part une journée au *PARC ASTÉRIX*. Une vraie journée, à fond, tous ensemble — la récompense d'une semaine de fou.\n\n` +
+  `Mais ça se gagne. Il va falloir tout casser. Chaque close nous rapproche de Panoramix, chaque deal raccourcit la file d'OzIris. À partir de maintenant et jusqu'à jeudi soir, le compteur affichera votre progression vers la potion magique.\n\n` +
+  `Allez la team — on va chercher cette journée. 🍺⚡`;
+
+// Calcule le timestamp ms d'auto-expiration : prochain JEUDI 18h30 Paris.
+// Si on est jeudi après 18h30, on prend le jeudi de la semaine suivante.
+// ⚠️ Hardcodé en CEST (+02:00) — OK tant qu'on n'est pas à cheval sur la
+// transition heure d'hiver (dernier dim. d'octobre). Pour 2026, CEST court
+// du 29 mars au 25 octobre, donc on est bon pour cette semaine.
+function getJeudi1830ParisMs() {
+  const PARIS_OFFSET_HOURS = 2; // CEST
+  const { jour, h, m } = getNowParis();
+  let daysUntil = (4 - jour + 7) % 7;
+  if (jour === 4 && (h > 18 || (h === 18 && m >= 30))) daysUntil = 7;
+  const baseStr = getDateStr(); // YYYY-MM-DD Paris d'aujourd'hui
+  const base = new Date(baseStr + "T00:00:00Z");
+  base.setUTCDate(base.getUTCDate() + daysUntil);
+  base.setUTCHours(18 - PARIS_OFFSET_HOURS, 30, 0, 0);
+  return base.getTime();
+}
+
+// Vérifie si le mode Astérix doit être désactivé (auto-expire). Appelée
+// par un setInterval(60s) au boot ET ponctuellement à la prochaine
+// commande/flush, pour ne pas dépendre uniquement du timer.
+function verifierExpirationModeAsterix() {
+  if (state.modeSpecial !== "asterix") return false;
+  if (!state.modeSpecialFin || Date.now() < state.modeSpecialFin) return false;
+  state.modeSpecial = null;
+  state.modeSpecialFin = null;
+  state.asterixAnnonceEnAttente = false;
+  state.asterixCompteurs = 0;
+  sauvegarderState(state);
+  console.log("⏰ Mode Astérix expiré (auto-jeudi 18h30) — retour au classique");
+  return true;
+}
 
 // ============================================================
 // MILESTONES ADAPTATIFS — selon jour + heure + % objectif
@@ -1967,6 +2063,52 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
       p.sens === 'remove' ? s - p.montant : s + p.montant, 0);
     const objetFinal = state.objectif - netPostSleep;
     const blocks = construireMessage(deals, ancienObjectif, objetFinal, state.objectifDepart, milestone, avanceesSnap);
+
+    // ── MODE ASTÉRIX : injection messages + annonce d'ouverture ──
+    // 1) On vérifie d'abord l'expiration (au cas où le timer ait raté).
+    // 2) Si mode actif :
+    //    - Pioche un message du pool COURT → injecté juste sous le titre.
+    //    - Tous les 3 compteurs : pioche un message du pool FORT en plus,
+    //      placé AVANT le court (pour que le "milestone bonus" s'affiche
+    //      en premier dans l'œil du lecteur).
+    //    - Si annonce d'ouverture en attente : on la POST séparément AVANT
+    //      le compteur sur PRINCIPAL_CHANNEL, puis on baisse le flag.
+    verifierExpirationModeAsterix();
+    let asterixCourt = null, asterixFort = null;
+    if (state.modeSpecial === "asterix") {
+      asterixCourt = pick(POOL_ASTERIX_COURT);
+      state.asterixCompteurs = (state.asterixCompteurs || 0) + 1;
+      if (state.asterixCompteurs % 3 === 0) {
+        asterixFort = pick(POOL_ASTERIX_FORT);
+      }
+      // Injection dans les blocks juste après le titre (index 0) — ou
+      // après le bloc milestone s'il y en a un (index 1).
+      const insertAt = milestone ? 2 : 1;
+      const inject = [];
+      if (asterixFort) {
+        inject.push({type:"section",text:{type:"mrkdwn",text:asterixFort}});
+      }
+      inject.push({type:"section",text:{type:"mrkdwn",text:asterixCourt}});
+      blocks.splice(insertAt, 0, ...inject);
+    }
+
+    // Annonce d'ouverture (1 seule fois, au tout premier compteur du mode).
+    if (state.modeSpecial === "asterix" && state.asterixAnnonceEnAttente) {
+      try {
+        await client.chat.postMessage({
+          channel: PRINCIPAL_CHANNEL,
+          text: `🛡️ Semaine historique — on défonce le compteur 🐗`,
+          blocks: [{ type:"section", text:{ type:"mrkdwn", text: ASTERIX_ANNONCE } }],
+        });
+        state.asterixAnnonceEnAttente = false;
+        sauvegarderState(state);
+        console.log("🛡️ Annonce Astérix postée sur le channel principal");
+      } catch(e) {
+        console.log("Annonce Astérix ratée :", e.message);
+        // On ne reset PAS le flag — au prochain compteur on retentera.
+      }
+    }
+
     try {
       await client.chat.postMessage({channel, text:`🚨 COMPTEUR`, blocks});
       // Post réussi : on retire UNIQUEMENT les avancées du snapshot
@@ -2212,6 +2354,90 @@ app.event("app_mention", async ({event,say,client}) => {
     return;
   }
 
+  // ── MODE ASTÉRIX / NORMAL / STATUT ───────────────────────────
+  // ⚠️ DOIT être évalué AVANT le handler "switch" plus bas, parce que la
+  // regex de switch matche "mode". Sans cette priorité, `mode asterix`
+  // serait avalé par switch qui essaierait de détecter une période.
+  //
+  // Channel restriction : commandes admin → channel test uniquement.
+  // L'annonce d'ouverture, elle, partira sur PRINCIPAL_CHANNEL au
+  // PROCHAIN compteur (pas immédiatement à la commande, pour que
+  // l'annonce arrive en même temps que le 1er compteur "thématé").
+  const mModeAsterix = tl.match(/\bmode\s+(?:asterix|astérix|asterics|astérics|asterixe)\b/i);
+  const mModeNormal  = tl.match(/\bmode\s+(?:normal|classique|standard|défaut|default|off)\b/i);
+  const mModeStatut  = tl.match(/\bmode\s+(?:statut|status|stat|info)\b/i);
+
+  if (mModeAsterix) {
+    if (await refuseIfNotAdmin()) return;
+    const fin = getJeudi1830ParisMs();
+    state.modeSpecial             = "asterix";
+    state.modeSpecialFin          = fin;
+    state.asterixAnnonceEnAttente = true;
+    state.asterixCompteurs        = 0;
+    sauvegarderState(state);
+    const finStr = new Date(fin).toLocaleString("fr-FR", {
+      timeZone: "Europe/Paris", weekday:"long", day:"2-digit", month:"long",
+      hour:"2-digit", minute:"2-digit"
+    });
+    try {
+      await client.chat.postEphemeral({
+        channel: event.channel, user: event.user,
+        text:
+          `🛡️ *Mode Astérix activé* — auto-expire le *${finStr}*.\n` +
+          `• L'annonce d'ouverture partira sur <#${PRINCIPAL_CHANNEL}> au prochain compteur (3 deals).\n` +
+          `• Chaque compteur affichera un message du pool court.\n` +
+          `• Tous les 3 compteurs : milestone bonus du pool fort en plus.\n` +
+          `• Force le retour avant l'expiration : \`@Money Lisa mode normal\`.`,
+      });
+    } catch(e) { console.log("postEphemeral mode asterix :", e.message); }
+    console.log(`🛡️ Mode Astérix activé jusqu'à ${finStr}`);
+    return;
+  }
+
+  if (mModeNormal) {
+    if (await refuseIfNotAdmin()) return;
+    const etait = state.modeSpecial;
+    state.modeSpecial             = null;
+    state.modeSpecialFin          = null;
+    state.asterixAnnonceEnAttente = false;
+    state.asterixCompteurs        = 0;
+    sauvegarderState(state);
+    try {
+      await client.chat.postEphemeral({
+        channel: event.channel, user: event.user,
+        text: etait === "asterix"
+          ? `🔄 *Mode Astérix désactivé* — retour au comportement classique (milestones tous les 5 compteurs).`
+          : `ℹ️ Aucun mode spécial actif — déjà en mode classique.`,
+      });
+    } catch(e) { console.log("postEphemeral mode normal :", e.message); }
+    return;
+  }
+
+  if (mModeStatut) {
+    if (await refuseIfNotAdmin()) return;
+    let txt;
+    if (state.modeSpecial === "asterix") {
+      const finStr = state.modeSpecialFin
+        ? new Date(state.modeSpecialFin).toLocaleString("fr-FR", {
+            timeZone: "Europe/Paris", weekday:"long", day:"2-digit", month:"long",
+            hour:"2-digit", minute:"2-digit"
+          })
+        : "(pas d'auto-expire)";
+      txt =
+        `🛡️ *Mode actif : Astérix*\n` +
+        `• Auto-expire : *${finStr}*\n` +
+        `• Compteurs depuis activation : *${state.asterixCompteurs}*\n` +
+        `• Annonce d'ouverture : ${state.asterixAnnonceEnAttente ? "*en attente du prochain compteur*" : "*déjà postée*"}\n` +
+        `• Pour forcer le retour au classique : \`@Money Lisa mode normal\``;
+    } else {
+      txt = `ℹ️ *Mode actif : classique*\n• Activer Astérix : \`@Money Lisa mode asterix\``;
+    }
+    try {
+      await client.chat.postEphemeral({ channel: event.channel, user: event.user, text: txt });
+    } catch(e) { console.log("postEphemeral mode statut :", e.message); }
+    return;
+  }
+
   // ── SWITCH PÉRIODE ──────────────────────────────────────────
   if (/\b(?:switch|swicth|swich|swithc|switcher|change|changer|chagne|chnage|modif(?:ie[rz]?)?|modifier|passer?|basculer?|mettre?\s*(?:sur|en|à)|mode|période|periode|period)\b/i.test(tl)) {
     state.modeLabel=detecterPeriode(texte);
@@ -2343,6 +2569,20 @@ app.message(async ({message,client}) => {
 });
 
 // ============================================================
+// AUTO-EXPIRE MODE ASTÉRIX — vérification chaque minute
+// ------------------------------------------------------------
+// Indépendant des flushes : si le mode est actif mais qu'aucun close
+// n'arrive avant l'expiration (jeudi 18h30), ce setInterval garantit
+// le retour silencieux au mode classique. Pas de message envoyé.
+// ============================================================
+function demarrerAutoExpireAsterix() {
+  setInterval(() => {
+    try { verifierExpirationModeAsterix(); }
+    catch (e) { console.log("Auto-expire Astérix erreur :", e.message); }
+  }, 60 * 1000);
+}
+
+// ============================================================
 // PLANIFICATEUR BOOSTER 🍑 — 16h les lun/mer/ven
 // ------------------------------------------------------------
 // Seul message automatique actif. Fire une fois par jour autorisé,
@@ -2428,6 +2668,17 @@ app.event("message", async ({event,client}) => {
       // Pour réactiver : décommenter la ligne voulue.
       // demarrerBoosterCadence16h(app.client);
       console.log("🕒 Planificateur : TOTALEMENT DÉSACTIVÉ (zéro message auto)");
+
+      // ── Auto-expire mode Astérix (1 min) ─────────────────────
+      // Vérifie si le mode est arrivé à son terme (jeudi 18h30 Paris) et
+      // bascule silencieusement au mode classique. Aucun message envoyé.
+      demarrerAutoExpireAsterix();
+      if (state.modeSpecial === "asterix") {
+        const finStr = state.modeSpecialFin
+          ? new Date(state.modeSpecialFin).toLocaleString("fr-FR",{timeZone:"Europe/Paris"})
+          : "(pas d'expire)";
+        console.log(`🛡️ Mode Astérix actif au boot — expire le ${finStr}`);
+      }
     } catch(e) {
       console.error("❌ Erreur, nouvelle tentative dans 5s...", e.message);
       setTimeout(demarrer, 5000);

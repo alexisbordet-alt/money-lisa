@@ -2316,11 +2316,11 @@ app.event("app_mention", async ({event,say,client}) => {
     sauvegarderState(state);
     const liste = montants.map(m => `+${fmt(m)}€`).join(", ");
     try {
-      await client.chat.postEphemeral({
-        channel: event.channel, user: event.user,
+      await client.chat.postMessage({
+        channel: event.channel,
         text: `↩️ *Noté : ${liste}* (annulation de close) — apparaîtra au prochain compteur sur <#${PRINCIPAL_CHANNEL}>.`,
       });
-    } catch(e) { console.log("postEphemeral add ava :", e.message); }
+    } catch(e) { console.log("postMessage add ava :", e.message); }
     return;
   }
 
@@ -2337,11 +2337,11 @@ app.event("app_mention", async ({event,say,client}) => {
     sauvegarderState(state);
     const liste = montants.map(m => `−${fmt(m)}€`).join(", ");
     try {
-      await client.chat.postEphemeral({
-        channel: event.channel, user: event.user,
+      await client.chat.postMessage({
+        channel: event.channel,
         text: `✅ *Noté : ${liste}* (close enregistré) — apparaîtra au prochain compteur sur <#${PRINCIPAL_CHANNEL}>.`,
       });
-    } catch(e) { console.log("postEphemeral remove ava :", e.message); }
+    } catch(e) { console.log("postMessage remove ava :", e.message); }
     return;
   }
 
@@ -2373,11 +2373,11 @@ app.event("app_mention", async ({event,say,client}) => {
     sauvegarderState(state);
     const liste = montants.map(m => `−${fmt(m)}€`).join(", ");
     try {
-      await client.chat.postEphemeral({
-        channel: event.channel, user: event.user,
+      await client.chat.postMessage({
+        channel: event.channel,
         text: `✅ *Noté : ${liste}* (close enregistré) — apparaîtra au prochain compteur sur <#${PRINCIPAL_CHANNEL}>.`,
       });
-    } catch(e) { console.log("postEphemeral remove :", e.message); }
+    } catch(e) { console.log("postMessage remove :", e.message); }
     return;
   }
 
@@ -2415,8 +2415,8 @@ app.event("app_mention", async ({event,say,client}) => {
       hour:"2-digit", minute:"2-digit"
     });
     try {
-      await client.chat.postEphemeral({
-        channel: event.channel, user: event.user,
+      await client.chat.postMessage({
+        channel: event.channel,
         text:
           `🛡️ *Mode Astérix activé* — auto-expire le *${finStr}*.\n` +
           `• L'annonce d'ouverture partira sur <#${PRINCIPAL_CHANNEL}> au prochain compteur (3 deals).\n` +
@@ -2424,7 +2424,7 @@ app.event("app_mention", async ({event,say,client}) => {
           `• Anti-répétition : pas 2 fois la même milestone tant que le pool n'est pas épuisé.\n` +
           `• Force le retour avant l'expiration : \`@Money Lisa mode normal\`.`,
       });
-    } catch(e) { console.log("postEphemeral mode asterix :", e.message); }
+    } catch(e) { console.log("postMessage mode asterix :", e.message); }
     console.log(`🛡️ Mode Astérix activé jusqu'à ${finStr}`);
     return;
   }
@@ -2438,13 +2438,13 @@ app.event("app_mention", async ({event,say,client}) => {
     state.asterixCompteurs        = 0;
     sauvegarderState(state);
     try {
-      await client.chat.postEphemeral({
-        channel: event.channel, user: event.user,
+      await client.chat.postMessage({
+        channel: event.channel,
         text: etait === "asterix"
           ? `🔄 *Mode Astérix désactivé* — retour au comportement classique (milestones tous les 5 compteurs).`
           : `ℹ️ Aucun mode spécial actif — déjà en mode classique.`,
       });
-    } catch(e) { console.log("postEphemeral mode normal :", e.message); }
+    } catch(e) { console.log("postMessage mode normal :", e.message); }
     return;
   }
 
@@ -2468,8 +2468,8 @@ app.event("app_mention", async ({event,say,client}) => {
       txt = `ℹ️ *Mode actif : classique*\n• Activer Astérix : \`@Money Lisa mode asterix\``;
     }
     try {
-      await client.chat.postEphemeral({ channel: event.channel, user: event.user, text: txt });
-    } catch(e) { console.log("postEphemeral mode statut :", e.message); }
+      await client.chat.postMessage({ channel: event.channel, text: txt });
+    } catch(e) { console.log("postMessage mode statut :", e.message); }
     return;
   }
 

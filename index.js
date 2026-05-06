@@ -663,6 +663,56 @@ const MESSAGES_DEPASSEMENT = [
 ];
 
 // ============================================================
+// MILESTONES FORCÉS — POOLS GAP-AWARE
+// ------------------------------------------------------------
+// Utilisés quand un compteur forcé tombe (tous les 5 flushes) ET que
+// l'écart entre % réel et % attendu (selon le temps écoulé sur la
+// période) est ≥ 15pts dans un sens ou dans l'autre. En dessous de cet
+// écart, on retombe sur la logique jour×heure de getMilestoneAdaptatif
+// qui couvre déjà bien les cas "normaux".
+//
+// Les fonctions sont des templates : elles reçoivent (pct, attendu)
+// et renvoient {emoji, header, texte} avec les chiffres injectés.
+// ============================================================
+const POOL_FORCE_GROS_RETARD = [
+  (pct, att) => ({emoji:"⚠️", header:"ON EST À LA TRAÎNE — IL FAUT POUSSER",
+    texte:`${pct}% au compteur mais on devrait être à ~${att}% à ce stade. Le rythme actuel ne suffit pas. Closes en série, on a pas le luxe d'attendre 💪`}),
+  (pct, att) => ({emoji:"😬", header:"LE RYTHME EST INSUFFISANT",
+    texte:`${pct}% pour ~${att}% attendus à ce stade. On accuse un retard sérieux. Chaque close maintenant compte double 🔥`}),
+  (pct, att) => ({emoji:"⏰", header:"L'OBJECTIF S'ÉLOIGNE — ON ACCÉLÈRE",
+    texte:`${pct}% au compteur, ~${att}% théoriques. On perd du terrain. Tout le monde dessus, closes maintenant 😤`}),
+  (pct, att) => ({emoji:"🚨", header:"IL FAUT INVERSER LA TENDANCE — MAINTENANT",
+    texte:`${pct}% alors qu'à ce stade on devrait être à ~${att}%. ${pickPhilippePression()}`}),
+  (pct, att) => ({emoji:"📉", header:"ON DÉCROCHE — ON SE REPREND",
+    texte:`${pct}% pour ~${att}% attendus. Le retard est sérieux. Ce que vous closez dans l'heure peut tout changer.`}),
+  (pct, att) => ({emoji:"💪", header:"LA REMONTADA SE JOUE MAINTENANT",
+    texte:`${pct}% au compteur, on devrait être à ~${att}%. C'est rattrapable mais ça nécessite de l'intensité maintenant. Allez la team 🔥`}),
+  (pct, att) => ({emoji:"⚡", header:"ON DOIT METTRE LE TURBO POUR REVENIR",
+    texte:`${pct}% pour ~${att}% théoriques. Closes en chaîne, on rattrape ensemble. ${pickCEO()}`}),
+  (pct, att) => ({emoji:"😤", header:"LA CADENCE NE SUIT PAS — ON FORCE",
+    texte:`${pct}% au compteur, ~${att}% attendus. ${att-pct} points sous le rythme. On serre les rangs et on pousse maintenant.`}),
+];
+
+const POOL_FORCE_GROSSE_AVANCE = [
+  (pct, att) => ({emoji:"🚀", header:"EN AVANCE SUR LE RYTHME — ON CREUSE L'ÉCART",
+    texte:`${pct}% au compteur alors qu'on devait être à ~${att}%. Cadence incroyable, on garde ça et l'objectif tombe avec de la marge 🔥`}),
+  (pct, att) => ({emoji:"🐐", header:"MODE GOAT — ON EST DEVANT",
+    texte:`${pct}% pour ~${att}% attendus à ce stade. C'est masterclass. On profite du momentum pour finir tranquille.`}),
+  (pct, att) => ({emoji:"🔥", header:"ON SURPERFORME — ON LÂCHE RIEN",
+    texte:`${pct}% au compteur, ~${att}% théoriques. Belle avance. On reste sur cette lancée 💪`}),
+  (pct, att) => ({emoji:"💥", header:"LE RYTHME EST EXCEPTIONNEL",
+    texte:`${pct}% alors qu'on devrait être à ~${att}%. C'est zinzin. Continuez comme ça et la semaine est dans la boîte 🏆`}),
+  (pct, att) => ({emoji:"🏆", header:"ON ÉCRIT UNE BELLE SEMAINE",
+    texte:`${pct}% pour ~${att}% attendus. On a pris de l'avance. Maintenant on capitalise. ${pickPhilippe()}`}),
+  (pct, att) => ({emoji:"👑", header:"EN AVANCE ET EN MAÎTRISE",
+    texte:`${pct}% au compteur, ~${att}% théoriques. Solide. Cette équipe envoie de la frappe 🚀`}),
+  (pct, att) => ({emoji:"⚡", header:"AVANCE CONFORTABLE — ON FINIT FORT",
+    texte:`${pct}% pour ~${att}% attendus. ${pct-att} points au-dessus du rythme. La fin de période sera sereine si on garde ça.`}),
+  (pct, att) => ({emoji:"💪", header:"LA TEAM EST EN MODE CRACK",
+    texte:`${pct}% au compteur quand on devait être à ~${att}%. ${pickCEO()} On reste sur cette lancée 🐐`}),
+];
+
+// ============================================================
 // MODE ASTÉRIX — pools de messages spéciaux
 // ------------------------------------------------------------
 // Activé manuellement avec `@Money Lisa mode asterix` dans le channel
@@ -1417,6 +1467,24 @@ function getMilestoneForce(objectifDepart, objectif) {
   const m = verifierMilestone(objectifDepart, objectif);
   if (m) return m;
   const pct = objectifDepart > 0 ? Math.round((1 - Math.max(0, objectif) / objectifDepart) * 100) : 0;
+
+  // ── Override gap-aware : si l'écart au rythme attendu est ≥ 15pts dans
+  // un sens ou l'autre, on prend un message qui dit explicitement les
+  // chiffres (% réel vs % théorique). Ça évite que le bot dise "bien
+  // positionnés" alors qu'on est 20pts en retard, ou inversement.
+  // Pour les écarts modérés (< 15pts), on tombe sur la logique
+  // jour×heure existante qui couvre déjà bien les cas normaux.
+  const attendu = pctAttendu();
+  if (attendu !== null && pct < 100) {
+    const ecart = pct - attendu;
+    if (ecart <= -15) {
+      return pick(POOL_FORCE_GROS_RETARD)(pct, attendu);
+    }
+    if (ecart >= 15) {
+      return pick(POOL_FORCE_GROSSE_AVANCE)(pct, attendu);
+    }
+  }
+
   const adaptatif = getMilestoneAdaptatif(pct);
   if (adaptatif) return adaptatif;
   return pick([
@@ -2598,7 +2666,11 @@ app.event("app_mention", async ({event,say,client}) => {
 // NOUVEAUX MESSAGES
 // ============================================================
 app.message(async ({message,client}) => {
-  if (message.subtype||message.bot_id) return;
+  if (message.bot_id) return;
+  // Filtre sur message.user : seuls les messages postés par un humain ont un `user`.
+  // Les messages système (channel_join, channel_leave, pinned_item…) n'en ont pas.
+  // Ça couvre tous les cas d'attachement (file_share, images mobiles, etc.) sans whitelister explicitement chaque subtype.
+  if (!message.user) return;
   if (message.thread_ts&&message.thread_ts!==message.ts) return;
   await traiterMessage({ts:message.ts,texte:message.text||"",userId:message.user,channel:message.channel,estEdition:false},client);
 });

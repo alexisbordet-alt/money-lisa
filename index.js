@@ -508,7 +508,7 @@ const MESSAGES_PHILIPPE = [
   "Philippe va pouvoir être fier de son équipe — vous assurez les gars 💪",
 ];
 const MESSAGES_PHILIPPE_PRESSION = [
-  "Philippe ne va pas être content les gars — il faut qu'on mette les bouchées doubles maintenant 😤",
+  "Philippe ne va pas être content les gars — il faut sérieusement accélérer maintenant 😤",
   "Faut pas que Philippe voie ces chiffres... On accélère et on rattrape ça 🔥",
   "Philippe regarde les chiffres et on peut faire mieux. C'est maintenant qu'on envoie la frappe 💪",
   "Le directeur commercial attend des résultats — c'est l'heure de montrer ce qu'on vaut 😤",
@@ -630,7 +630,7 @@ function getMessagePression(pctJourneeEcoule, pctObjectifFait) {
     {header:"14H — ON REPART DE PLUS BELLE 🚀",texte:"Pause déj terminée. C'est l'après-midi qui va faire la différence. Tout le monde pousse !"},
   ]);
   if (h===15&&pctObjectifFait>=45&&pctObjectifFait<=55) return pick([
-    {header:"15H — PILE À LA MOITIÉ MAIS Y'A MOINS DE 4H 😤⚡",texte:"On est à 50% mais il reste moins de 4h. Le rythme doit doubler maintenant !"},
+    {header:"15H — PILE À LA MOITIÉ MAIS Y'A MOINS DE 4H 😤⚡",texte:"On est à 50% mais il reste moins de 4h. Faut sérieusement accélérer le rythme maintenant !"},
     {header:"MOITIÉ FAITE À 15H — LE TURBO C'EST MAINTENANT 🔥",texte:`50% à 15h c'est bien mais c'est pas assez. ${pickCEO()} Tout le monde pousse !`},
   ]);
   if (h>=17&&pctObjectifFait>=80&&pctObjectifFait<90) return pick([
@@ -848,7 +848,7 @@ function getMilestoneAdaptatif(pctObjectif) {
           {emoji:"⚡",header:"ON CONTINUE SUR LA LANCÉE",texte:"Bonne matinée. L'aprèm c'est pour consolider. On ne lâche rien 💪"},
           {emoji:"🔥",header:"LE MOMENTUM EST LÀ — GARDEZ LA PRESSION",texte:`Si on ferme la journée avec ce rythme, la semaine va être belle. ${pickCEO()}`},
           {emoji:"💪",header:"ON EST DANS LES CLOUS — ON ACCÉLÈRE",texte:"Bon positionnement en début d'aprèm. Maintenant on met le turbo pour finir la journée fort 🎯"},
-          {emoji:"🎯",header:"BELLE MISE EN ROUTE — ON POUSSE ENCORE",texte:"Le rythme est bon. Si on double la cadence cet aprèm, on finit la semaine avec de la marge. Allez !"},
+          {emoji:"🎯",header:"BELLE MISE EN ROUTE — ON POUSSE ENCORE",texte:"Le rythme est bon. Si on accélère encore cet aprèm, on finit la semaine avec de la marge. Allez !"},
           {emoji:"🚀",header:"LUNDI APRÈM DANS LES CLOUS — ON GARDE ÇA",texte:`${pickPhilippe()} Bon début de semaine. L'aprèm pour creuser l'écart et mettre de la pression sur l'objectif 💥`},
           {emoji:"💥",header:"LA SEMAINE PREND LA BONNE DIRECTION",texte:"Bon positionnement lundi aprèm. Les semaines qui se gagnent, elles commencent exactement comme ça. Allez ! 🔥"},
           {emoji:"🏆",header:"ON EST EN ROUTE — ON FINIT LA JOURNÉE FORT",texte:`${pickCEO()} Dans les clous lundi aprèm. Si on finit la journée sur ce rythme, mardi sera plus facile. 🎯`},
@@ -872,7 +872,7 @@ function getMilestoneAdaptatif(pctObjectif) {
           {emoji:"🏆",header:"BELLE JOURNÉE — ON REMET ÇA DEMAIN",texte:`${pickCEO()} On pose les bases aujourd'hui, demain on accélère 💪`},
           {emoji:"⚡",header:"C'EST COMME ÇA QU'ON COMMENCE UNE SEMAINE",texte:"Finir la journée avec des chiffres solides, c'est ce qu'on veut. Demain on remet ça 🎯"},
           {emoji:"🚀",header:"DÉBUT DE SEMAINE RÉUSSI — LA MACHINE EST LANCÉE",texte:`${pickPhilippe()} Belle journée. Ce rythme sur 5 jours et l'objectif va tomber confortablement. Demain on repart 🔥`},
-          {emoji:"💥",header:"ON FERME FORT — LE RESTE SUIT",texte:"Fin de journée solide. C'est exactement ce qu'on voulait. Demain on double la mise 🏆"},
+          {emoji:"💥",header:"ON FERME FORT — LE RESTE SUIT",texte:"Fin de journée solide. C'est exactement ce qu'on voulait. Demain on garde le rythme 🏆"},
           {emoji:"🎯",header:"BELLE BASE — ON CONTINUE SUR CETTE LANCÉE",texte:`${pickCEO()} Une journée qui se ferme bien, ça met la semaine dans le bon sens. Allez, demain on remet ça 💪`},
           {emoji:"🐐",header:"ON COMMENCE CETTE SEMAINE COMME DES GOAT",texte:"Fin de journée avec du chiffre, c'est ce qu'on veut. Demain on accélère et l'objectif va tomber 🚀"},
         ]);
@@ -918,7 +918,7 @@ function getMilestoneAdaptatif(pctObjectif) {
           {emoji:"⚡",header:"ON EST SUR LE FIL — L'APRÈM DOIT ÊTRE FORTE",texte:"On est dans les clous mais juste. L'aprèm doit être chargée. On pousse ensemble 💪"},
           {emoji:"🔥",header:"LE GAME EST OUVERT",texte:"Bon positionnement à cette heure. L'aprèm va faire la différence. Qui sort le prochain close ? 🎯"},
           {emoji:"💪",header:"ON CONTINUE — DEAL APRÈS DEAL",texte:`${pickCEO()} On reste focusés et ça va tomber. L'aprèm commence, on accélère 🚀`},
-          {emoji:"🎯",header:"LE RYTHME EST LÀ — ON DOUBLE LA CADENCE",texte:"On est bien positionnés. Si on met le turbo cet aprèm, demain on sera en avance sur l'objectif. Allez !"},
+          {emoji:"🎯",header:"LE RYTHME EST LÀ — ON ACCÉLÈRE",texte:"On est bien positionnés. Si on pousse encore cet aprèm, demain on sera en avance sur l'objectif. Allez !"},
           {emoji:"🚀",header:"MARDI APRÈM DANS LA COURSE — ON EN PROFITE",texte:`${pickPhilippe()} Dans les clous mardi aprèm, c'est exactement ça. L'aprèm pour accélérer et finir fort cette semaine 💥`},
           {emoji:"💥",header:"ON EST POSITIONNÉS — ON ACCÉLÈRE",texte:"Bon rythme à cette heure. Mais c'est mardi aprèm : le bon moment pour prendre de l'avance sur mercredi. Allez ! 🔥"},
           {emoji:"🏆",header:"LA TRAJECTOIRE EST BONNE — ON LA TIENT",texte:`${pickCEO()} Dans les clous mardi aprèm. Si on reste là-dessus, jeudi et vendredi seront déjà à moitié gagnés 🎯`},
@@ -995,7 +995,7 @@ function getMilestoneAdaptatif(pctObjectif) {
           {emoji:"⚡",header:"ON EST AU BON MOMENT — ON EN PROFITE",texte:"C'est exactement l'heure où l'équipe prend sa deuxième respiration. Qui lance la suite ? 🎯"},
         ]);
         if (pctObjectif < 60) return pick([
-          {emoji:"⚡",header:"ON EST DANS LA COURSE — ON DOUBLE LA CADENCE",texte:"On est encore dans le game. Les 2 prochains jours vont être décisifs. On accélère maintenant 💪"},
+          {emoji:"⚡",header:"ON EST DANS LA COURSE — ON ACCÉLÈRE LE RYTHME",texte:"On est encore dans le game. Les 2 prochains jours vont être décisifs. On accélère maintenant 💪"},
           {emoji:"🔥",header:"LE MOMENTUM EST LÀ — ON EN PROFITE",texte:`On est bien positionnés pour la fin de semaine. ${pickCEO()} On lâche rien 💪`},
           {emoji:"💪",header:"ON EST DANS LES CLOUS — ON POUSSE ENCORE",texte:"Bon positionnement à mi-semaine. Jeudi et vendredi pour finir fort. Qui balance le prochain deal ? 🎯"},
           {emoji:"🎯",header:"LE GAME EST OUVERT — ON L'EMPORTE",texte:"Mi-semaine et dans la course. Les 2 prochains jours peuvent tout faire basculer dans le bon sens. Allez !"},
@@ -1724,8 +1724,8 @@ function calculerTopSales(periode, mode) {
 const MESSAGES_TOP_SALES_FIN = [
   "Continuez comme ça la team 😤🔥","Voilà ce qu'on veut voir. Bravo les boss 💪",
   "C'est masterclass. On est sur du très lourd 👑","Le classement c'est bien, le 100% c'est mieux. On continue 🚀",
-  "Ce rythme, on le garde. On double la mise 😤","Vous envoyez de la frappe les gars. C'est exactement ça 🔥",
-  "C'est carré. Maintenant on double la mise 💥","Des GOAT. Voilà ce que vous êtes 🐐🏆",
+  "Ce rythme, on le garde. On pousse encore 😤","Vous envoyez de la frappe les gars. C'est exactement ça 🔥",
+  "C'est carré. Maintenant on continue sur cette lancée 💥","Des GOAT. Voilà ce que vous êtes 🐐🏆",
   "C'est zinzin ce classement. Continuez à envoyer 🙌","Top 3 de feu. Le reste du classement va devoir se réveiller 😅🔥",
   "Ça c'est un classement de boss finals 👑","C'est la maxence totale. Je vous aime les gars 🏆",
   "Direction l'asile tellement vous êtes bons 😅💥","Quelle team, on ne lâche rien 🔥😤",
@@ -1784,7 +1784,7 @@ const MESSAGES_PLANIFIES = {
     lundi:[
       {header:"LE COMPTEUR COMMENCE À CHAUFFER ? 👀",texte:(p,ml)=>`${p>0?`${p}% de l'objectif ${ml} déjà au compteur.`:"Le compteur attend ses premiers deals."} Qui a déjà envoyé de la frappe ce matin ?`},
       {header:"ON EST BIEN PARTIS ? 🎯",texte:(p,ml)=>`${p>=20?`${p}% au compteur — beau début ! Si on garde ce rythme, la semaine va être belle.`:`${p}% sur l'objectif ${ml}. L'aprèm doit être plus chargée. Allez les gars !`}`},
-      {header:"LA MATINÉE TIRE À SA FIN ⚡",texte:(p,ml)=>`${pickCEO()} ${p}% de l'objectif ${ml} fait ce matin. L'aprèm commence bientôt — on va doubler la cadence !`},
+      {header:"LA MATINÉE TIRE À SA FIN ⚡",texte:(p,ml)=>`${pickCEO()} ${p}% de l'objectif ${ml} fait ce matin. L'aprèm commence bientôt — on pousse encore !`},
     ],
     mardi:[
       {header:"ON Y EST — QUI CLOSE MAINTENANT ? 🔥",texte:(p,ml)=>`${p}% de l'objectif ${ml} au compteur. Le reste de la semaine se construit deal par deal. Allez les cracks !`},

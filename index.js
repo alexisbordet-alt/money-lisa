@@ -2476,7 +2476,7 @@ app.event("app_mention", async ({event,say,client}) => {
   // Utile après des ajustements admin (add/remove avancée) pour ne pas
   // attendre les 3 deals naturels avant de voir les chiffres mis à jour.
   // Après, le cycle normal reprend (buffer vide, prochain flush au 3e deal).
-  const mUpdate = tl.match(/\b(?:update|push|broadcast|maj|maj\s*compteur|forc[eé]\s*compteur|compteur\s*now|now\s*compteur|envoie\s*(?:le\s*)?compteur)\b/i);
+  const mUpdate = tl.match(/\b(?:update|push|broadcast|maj|maj\s*compteur|forc[eé]r?\s*compteur|compteur\s*now|now\s*compteur|envoie\s*(?:le\s*)?compteur)\b/i);
   if (mUpdate) {
     if (await refuseIfNotAdmin()) return;
 

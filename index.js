@@ -2306,10 +2306,11 @@ app.event("app_mention", async ({event,say,client}) => {
   const QUAL_AVA   = /(?:l[ae']?\s*)?(?:avanc[eé]e?s?|avancement|progress(?:ion)?|progr[eé]s|fait[s]?|acquis|crédit|credit)/;
   const SEP        = /\s+(?:de\s+|[àa]\s+)?/;
   const NUM        = /([\d,.\s]+k?)/;
-  // NUM_MULTI : pour les avancées, on accepte `80+90+150` afin d'empiler
-  // plusieurs ajustements en une commande qui s'afficheront comme des
-  // line-items distincts dans le prochain compteur.
-  const NUM_MULTI  = /([\d,.\sk+]+)/;
+  // NUM_MULTI : pour les avancées, on accepte plusieurs montants empilés
+  // en une commande, qui s'afficheront comme des line-items distincts
+  // dans le prochain compteur. Séparateurs supportés : `+`, `,`, `;`,
+  // ` et ` (avec espaces). Ex : `80+90`, `80, 90`, `232 et 268`.
+  const NUM_MULTI  = /([\d,.\sk+et;]+)/i;
 
   // On accepte les 2 ordres : `add avancée 7900` (qual→num) ET `add 7900 avancée` (num→qual).
   // SEP gère les prépositions ("de"/"à"/"a") entre les morceaux dans les 2 sens.
@@ -2326,11 +2327,12 @@ app.event("app_mention", async ({event,say,client}) => {
        tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM_MULTI.source, "i"))
     || tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+NUM_MULTI.source+SEP.source+QUAL_AVA.source, "i"));
 
-  // parseMontants : "80+90" → [80, 90] ; "150K" → [150000] ; "80, 90" → [80, 90]
+  // parseMontants : "80+90" → [80, 90] ; "150K" → [150000] ; "80, 90" → [80, 90] ;
+  // "232 et 268" → [232, 268] ; "100;200" → [100, 200].
   // Rejette les morceaux non parsables (return [] si rien de valide).
   const parseMontants = (raw) => {
     if (!raw) return [];
-    return raw.split(/[+]/).map(s => s.trim()).filter(Boolean)
+    return raw.split(/\s+et\s+|[+,;]/i).map(s => s.trim()).filter(Boolean)
       .map(s => extraireObjectif(s)).filter(n => n && !isNaN(n) && n > 0);
   };
 

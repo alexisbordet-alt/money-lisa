@@ -2357,6 +2357,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const ajout = extraireObjectif(mAddObj[1].trim());
     if (!ajout||isNaN(ajout)) { await say(`❌ Montant non reconnu.`); return; }
     const avant = snapshot();
+    console.log(`📝 OBJECTIF MODIFIÉ via 'add objectif' par <@${event.user}> dans <#${event.channel}> : ${avant.obj}€ → ${avant.obj + ajout}€ (+${ajout}€) — texte: ${JSON.stringify(texte.slice(0, 200))}`);
     state.objectifDepart += ajout;
     state.objectif       += ajout;
     sauvegarderState(state);
@@ -2373,6 +2374,7 @@ app.event("app_mention", async ({event,say,client}) => {
     if (retrait >= state.objectifDepart) { await say(`❌ Impossible de retirer *${fmt(retrait)}€* — objectif total = *${fmt(state.objectifDepart)}€*.`); return; }
     if (retrait > state.objectif)        { await say(`❌ Impossible : retirer *${fmt(retrait)}€* ferait passer l'objectif sous l'avancée déjà réalisée (*${fmt(avancee)}€*). Utilise \`objectif ${Math.round(avancee)} sur [nouveau_total]\` si tu veux forcer.`); return; }
     const avant = snapshot();
+    console.log(`📝 OBJECTIF MODIFIÉ via 'remove objectif' par <@${event.user}> dans <#${event.channel}> : ${avant.obj}€ → ${avant.obj - retrait}€ (−${retrait}€) — texte: ${JSON.stringify(texte.slice(0, 200))}`);
     state.objectifDepart -= retrait;
     state.objectif       -= retrait;
     sauvegarderState(state);
@@ -2432,6 +2434,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const ajout=extraireObjectif(mAdd[1].trim());
     if (!ajout||isNaN(ajout)){await say(`❌ Montant non reconnu.`);return;}
     const avant = snapshot();
+    console.log(`📝 OBJECTIF MODIFIÉ via 'add' (alias add objectif) par <@${event.user}> dans <#${event.channel}> : ${avant.obj}€ → ${avant.obj + ajout}€ (+${ajout}€) — texte: ${JSON.stringify(texte.slice(0, 200))}`);
     state.objectifDepart+=ajout; state.objectif+=ajout;
     sauvegarderState(state);
     await say(rendu(`➕ *+${fmt(ajout)}€ à l'OBJECTIF TOTAL* _(alias de \`add objectif\`)_`, avant, snapshot()));
@@ -2643,6 +2646,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const total  = extraireObjectif(mAvanceeSur[2].trim());
     if (!avance||!total||isNaN(avance)||isNaN(total)) { await say(`❌ Format non reconnu. Ex : \`@Money Lisa avancée 400 sur 20000\``); return; }
     const reste = total - avance;
+    console.log(`📝 OBJECTIF RESET via 'avancée X sur Y' par <@${event.user}> dans <#${event.channel}> : ancienTotal=${state.objectifDepart}€ → nouveauTotal=${total}€, avancée=${avance}€ — texte: ${JSON.stringify(texte.slice(0, 200))}`);
     state.objectifDepart = total; state.objectif = reste; state.milestonesVus = [];
     const pctDeja = Math.round((avance/total)*100);
     for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
@@ -2680,6 +2684,7 @@ app.event("app_mention", async ({event,say,client}) => {
       if (avance && total && !isNaN(avance) && !isNaN(total) && total > avance) {
         const restant = total - avance;
         const periode = detecterPeriode(reste);
+        console.log(`📝 OBJECTIF RESET via 'objectif X sur Y' par <@${event.user}> dans <#${event.channel}> : ancienTotal=${state.objectifDepart}€ → nouveauTotal=${total}€, avancée=${avance}€, periode=${periode} — texte: ${JSON.stringify(texte.slice(0, 200))}`);
         state.objectifDepart=total; state.objectif=restant; state.modeLabel=periode;
         state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
         state.objectifNbJours=null; state.objectifDateDebut=null;
@@ -2698,6 +2703,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const periode=detecterPeriode(reste);
     const matchJours = periode.match(/^les (\d+) prochains jours$/);
     const matchMois  = periode === "le mois";
+    console.log(`📝 OBJECTIF RESET via 'objectif X' par <@${event.user}> dans <#${event.channel}> : ancienTotal=${state.objectifDepart}€ → nouveauTotal=${nouvel}€, periode=${periode} — texte: ${JSON.stringify(texte.slice(0, 200))}`);
     state.objectifDepart=nouvel; state.objectif=nouvel; state.modeLabel=periode;
     state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
     state.pendingAvancees=[]; // reset des ajustements en attente du précédent objectif

@@ -580,7 +580,7 @@ function getMessagePression(pctJourneeEcoule, pctObjectifFait) {
     return pick([
       {header:"JEUDI 17H30 — L'OBJECTIF EST ENCORE LOIN 😤",texte:`${pctObjectifFait}% seulement. Plus qu'une heure. ${pickPhilippePression()} Tout le monde sur le pont 🔥`},
       {header:"L'HEURE DU FINISH JEUDI — ON POUSSE",texte:`1h avant fin de journée, ${pctObjectifFait}% au compteur. L'objectif attend. Closes en série maintenant 💪`},
-      {header:"JEUDI FIN DE JOURNÉE — ON NE LÂCHE PAS",texte:`${pctObjectifFait}% à 17h30 jeudi. Chaque close des 60 prochaines minutes compte double 😤`},
+      {header:"JEUDI FIN DE JOURNÉE — ON NE LÂCHE PAS",texte:`${pctObjectifFait}% à 17h30 jeudi. Chaque close des 60 prochaines minutes est décisif 😤`},
     ]);
   }
   // Vendredi 17h30 : on promet le Brelan UNIQUEMENT si l'objectif est tombé.
@@ -683,7 +683,7 @@ const POOL_FORCE_GROS_RETARD = [
   (pct, att) => ({emoji:"⚠️", header:"ON EST À LA TRAÎNE — IL FAUT POUSSER",
     texte:`${pct}% au compteur mais on devrait être à ~${att}% à ce stade. Le rythme actuel ne suffit pas. Closes en série, on a pas le luxe d'attendre 💪`}),
   (pct, att) => ({emoji:"😬", header:"LE RYTHME EST INSUFFISANT",
-    texte:`${pct}% pour ~${att}% attendus à ce stade. On accuse un retard sérieux. Chaque close maintenant compte double 🔥`}),
+    texte:`${pct}% pour ~${att}% attendus à ce stade. On accuse un retard sérieux. Chaque close maintenant est crucial 🔥`}),
   (pct, att) => ({emoji:"⏰", header:"L'OBJECTIF S'ÉLOIGNE — ON ACCÉLÈRE",
     texte:`${pct}% au compteur, ~${att}% théoriques. On perd du terrain. Tout le monde dessus, closes maintenant 😤`}),
   (pct, att) => ({emoji:"🚨", header:"IL FAUT INVERSER LA TENDANCE — MAINTENANT",
@@ -1318,7 +1318,7 @@ function getMilestoneAdaptatif(pctObjectif) {
       if (pctObjectif < 40) return pick([
         {emoji:"🚨",header:"SPRINT TOTAL — IL RESTE PEU DE TEMPS",texte:`${pickPhilippePression()} C'est maintenant que les vrais se révèlent. ALLEZ, tout le monde dessus 🔥`},
         {emoji:"💥",header:"C'EST MAINTENANT OU JAMAIS",texte:"Il reste peu de temps et l'objectif est encore loin. Closes en série immédiatement. Allez la team !"},
-        {emoji:"🚨",header:"LES DERNIÈRES HEURES SONT LÀ",texte:`${pickPhilippePression()} Chaque deal maintenant compte triple. On ferme tout ce qu'on peut avant 18h 💪`},
+        {emoji:"🚨",header:"LES DERNIÈRES HEURES SONT LÀ",texte:`${pickPhilippePression()} Chaque deal maintenant est décisif. On ferme tout ce qu'on peut avant 18h 💪`},
         {emoji:"⚡",header:"ON A LES DERNIÈRES HEURES — ON LES UTILISE",texte:"Il reste du temps. Closes en série maintenant et l'objectif peut encore tomber. Allez les cracks !"},
       ]);
       if (pctObjectif < 70) return pick([
@@ -1407,7 +1407,7 @@ function verifierMilestone(objectifDepart, objectif) {
             {emoji:"😬", header:`${threshold}% — RYTHME TROP LENT`,
              texte:`${threshold}% au compteur mais le temps écoulé nous met à ~${attendu}% attendus. On est en retard, faut accélérer la cadence sur les deals qui restent.`},
             {emoji:"⏰", header:`${threshold}% — IL FAUT METTRE LE TURBO`,
-             texte:`Palier ${threshold}% franchi mais on est sous le rythme (attendu : ~${attendu}%). Moins de temps devant, autant de deals à faire. Chaque close compte double maintenant 🔥`},
+             texte:`Palier ${threshold}% franchi mais on est sous le rythme (attendu : ~${attendu}%). Moins de temps devant, autant de deals à faire. Chaque close est décisif maintenant 🔥`},
           ]));
         }
 

@@ -2465,6 +2465,79 @@ app.event("app_mention", async ({event,say,client}) => {
     return;
   }
 
+  // ── UPDATE — flush manuel du compteur sur le channel principal ──
+  // Tape `@Money Lisa update` dans le channel test : ça flushe TOUT
+  // (buffer + pendingAvancees) et poste un compteur sur PRINCIPAL_CHANNEL.
+  // Utile après des ajustements admin (add/remove avancée) pour ne pas
+  // attendre les 3 deals naturels avant de voir les chiffres mis à jour.
+  // Après, le cycle normal reprend (buffer vide, prochain flush au 3e deal).
+  const mUpdate = tl.match(/\b(?:update|push|broadcast|maj|maj\s*compteur|forc[eé]\s*compteur|compteur\s*now|now\s*compteur|envoie\s*(?:le\s*)?compteur)\b/i);
+  if (mUpdate) {
+    if (await refuseIfNotAdmin()) return;
+
+    // 1) Snapshot tout ce qu'on va consommer
+    const dealsSnap     = [...state.buffer];
+    const avanceesSnap  = [...state.pendingAvancees];
+
+    // 2) Calcul de l'ancien objectif AFFICHÉ (avant les deals snap, en
+    //    remontant les avancées qui ont déjà muté state.objectif).
+    const ancienObjectif = state.objectif;
+    const totalDealsMRR  = dealsSnap.reduce((s,d) => s + d.montant, 0);
+
+    // 3) Mute l'état : objectif -= deals, on marque les ts comme comptés,
+    //    on incrémente le compteur, on vide buffer + avancées.
+    state.objectif = ancienObjectif - totalDealsMRR;
+    dealsSnap.forEach(d => {
+      state.tsDejaComptes.push(d.ts);
+      state.montantsComptes[d.ts] = d.montant;
+    });
+    if (state.tsDejaComptes.length > 500) state.tsDejaComptes = state.tsDejaComptes.slice(-500);
+    state.buffer = [];
+    state.pendingAvancees = [];
+    state.nbCompteurs = (state.nbCompteurs || 0) + 1;
+    state.lastChannel = PRINCIPAL_CHANNEL;
+    sauvegarderState(state);
+
+    // 4) Milestone gap-aware (palier > forcé > rien selon ce qui s'applique)
+    const milestone = (state.nbCompteurs % 5 === 0)
+      ? getMilestoneForce(state.objectifDepart, state.objectif)
+      : verifierMilestone(state.objectifDepart, state.objectif);
+
+    // 5) Construit les blocks (même flux que flush normal) puis remplace le
+    //    titre par "🔄 COMPTEUR MIS À JOUR" pour qu'on identifie un update.
+    const blocks = construireMessage(dealsSnap, ancienObjectif, state.objectif, state.objectifDepart, milestone, avanceesSnap);
+    if (blocks[0] && blocks[0].type === "section" && blocks[0].text) {
+      blocks[0].text.text = `🔄  *COMPTEUR MIS À JOUR*  🔄`;
+    }
+
+    // 6) Post sur le channel principal
+    try {
+      await client.chat.postMessage({ channel: PRINCIPAL_CHANNEL, text: `🔄 Compteur mis à jour`, blocks });
+      console.log(`🔄 update : compteur posté sur PRINCIPAL_CHANNEL — ${dealsSnap.length} deals, ${avanceesSnap.length} avancées consommées`);
+    } catch(e) {
+      console.log("postMessage update raté :", e.message);
+      // Rollback partiel impossible (les ts sont déjà dans tsDejaComptes).
+      // On signale l'erreur côté admin mais on ne tente pas de remettre les
+      // deals dans le buffer — risque de doublons.
+      try {
+        await client.chat.postMessage({
+          channel: event.channel,
+          text: `❌ Erreur au post du compteur sur <#${PRINCIPAL_CHANNEL}>. État local mis à jour (deals comptés, avancées consommées) mais le message n'est pas parti. Re-tente avec \`@Money Lisa update\` ou copie-colle manuel.`,
+        });
+      } catch(_){}
+      return;
+    }
+
+    // 7) Confirmation côté admin
+    try {
+      await client.chat.postMessage({
+        channel: event.channel,
+        text: `✅ Compteur posté sur <#${PRINCIPAL_CHANNEL}>.\n• ${dealsSnap.length} deal(s) flushé(s) du buffer\n• ${avanceesSnap.length} ajustement(s) avancée consommé(s)\n• Buffer vidé — le cycle normal reprend (prochain flush au 3e deal).`,
+      });
+    } catch(e) { console.log("postMessage confirmation update :", e.message); }
+    return;
+  }
+
   // ── MODE ASTÉRIX / NORMAL / STATUT ───────────────────────────
   // ⚠️ DOIT être évalué AVANT le handler "switch" plus bas, parce que la
   // regex de switch matche "mode". Sans cette priorité, `mode asterix`

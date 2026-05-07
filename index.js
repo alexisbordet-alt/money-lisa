@@ -359,9 +359,14 @@ function extraireTousMRR(texte) {
 
   const resultats = [];
   let match;
+  // ⚠️ FILTRE DÉFENSIF : on ignore les montants < 10€ pour bloquer les
+  // faux positifs type "6 MRR" extraits par erreur d'un texte qui n'avait
+  // pas de réel petit MRR. Aligné avec le filtre déjà présent en Step 6.
+  // Risque accepté : un vrai close de moins de 10€ ne serait pas capté
+  // (cas très rare, l'admin peut le saisir manuellement via add/remove avancée).
   while ((match = mrrReg.exec(sanFaux)) !== null) {
     const montant = parseMontant(match[1]||match[2]||"");
-    if (montant===null) continue;
+    if (montant===null || montant < 10) continue;
     if (!resultats.some(r=>Math.abs(r.index-match.index)<20))
       resultats.push({montant,index:match.index});
   }
@@ -374,7 +379,7 @@ function extraireTousMRR(texte) {
 
   while ((match = upsellReg.exec(sanFaux)) !== null) {
     const montant = parseMontant(match[1]||match[2]||"");
-    if (montant===null) continue;
+    if (montant===null || montant < 10) continue;  // même filtre défensif <10€
     if (!resultats.some(r=>Math.abs(r.index-match.index)<20))
       resultats.push({montant,index:match.index,isUpsell:true});
   }
@@ -2098,9 +2103,12 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
     return;
   }
 
-  state.buffer.push({user:userName,userId,montant:mrr,leads:extraireTousMRR(texte),ts});
+  const _leadsBuf = extraireTousMRR(texte);
+  state.buffer.push({user:userName,userId,montant:mrr,leads:_leadsBuf,ts});
   sauvegarderState(state);
   console.log(`📥 Buffer : ${state.buffer.length}/3 — ${userName} : ${mrr}€`);
+  // DIAG : capture leads + extrait du texte pour traquer les montants fantômes
+  console.log(`📥 BUFFER PUSH ts=${ts} montant=${mrr} leads=[${_leadsBuf}] texte=${JSON.stringify(texte.slice(0, 200))}`);
 
   // ✅ Réaction tick vert sur le message comptabilisé
   try {
@@ -2126,6 +2134,8 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
     const ancienObjectif   = state.objectif;
     const totalMRR         = deals.reduce((s,d)=>s+d.montant, 0);
     const avanceesSnap     = [...state.pendingAvancees];
+    // DIAG : capture l'état exact des deals + avancées au flush pour traquer les fantômes
+    console.log(`📊 FLUSH: ${deals.map(d => `${d.user}(ts=${d.ts}) montant=${d.montant} leads=[${d.leads}]`).join(' | ')} pendingAvancees=[${avanceesSnap.map(p=>`${p.sens}:${p.montant}`).join(',')}]`);
     state.objectif         = ancienObjectif - totalMRR;
     deals.forEach(d => { state.tsDejaComptes.push(d.ts); state.montantsComptes[d.ts] = d.montant; });
     if (state.tsDejaComptes.length > 500) state.tsDejaComptes = state.tsDejaComptes.slice(-500);

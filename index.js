@@ -1379,14 +1379,18 @@ function pctAttendu() {
   return null;
 }
 
-function verifierMilestone(objectifDepart, objectif) {
+function verifierMilestone(objectifDepart, objectif, dryRun = false) {
   if (!objectifDepart || objectifDepart <= 0) return null;
   const pct = Math.round((1 - Math.max(0, objectif) / objectifDepart) * 100);
 
   for (const threshold of [25, 50, 75, 100]) {
     if (pct >= threshold && !state.milestonesVus.includes(threshold)) {
-      state.milestonesVus.push(threshold);
-      sauvegarderState(state);
+      // dryRun = preview : on calcule le milestone qui SERAIT déclenché
+      // sans marquer le seuil comme vu (utile pour `statut private`).
+      if (!dryRun) {
+        state.milestonesVus.push(threshold);
+        sauvegarderState(state);
+      }
 
       // Helper : wrap le return pour attacher le threshold franchi,
       // ce qui permet au caller de rollback milestonesVus si le postMessage rate.
@@ -2781,7 +2785,90 @@ app.event("app_mention", async ({event,say,client}) => {
     return;
   }
 
-  // ── STATUT ───────────────────────────────────────────────────
+  // ── STATUT PUBLIC — flush buffer + post compteur normal sur PRINCIPAL_CHANNEL ──
+  // Comme `update` mais sans changer le titre : c'est le compteur classique
+  // que les commerciaux ont l'habitude de voir.
+  const mStatutPublic = tl.match(/\bstatut\s+(?:public|publique|broadcast|partage[rz]?|envoie[rz]?|diffuser?|public-channel|publish)\b/i);
+  if (mStatutPublic) {
+    if (await refuseIfNotAdmin()) return;
+
+    const dealsSnap     = [...state.buffer];
+    const avanceesSnap  = [...state.pendingAvancees];
+    const ancienObjectif = state.objectif;
+    const totalDealsMRR  = dealsSnap.reduce((s,d) => s + d.montant, 0);
+
+    // Flush : mute l'état exactement comme un compteur naturel
+    state.objectif = ancienObjectif - totalDealsMRR;
+    dealsSnap.forEach(d => {
+      state.tsDejaComptes.push(d.ts);
+      state.montantsComptes[d.ts] = d.montant;
+    });
+    if (state.tsDejaComptes.length > 500) state.tsDejaComptes = state.tsDejaComptes.slice(-500);
+    state.buffer = [];
+    state.pendingAvancees = [];
+    state.nbCompteurs = (state.nbCompteurs || 0) + 1;
+    state.lastChannel = PRINCIPAL_CHANNEL;
+    sauvegarderState(state);
+
+    const milestone = (state.nbCompteurs % 5 === 0)
+      ? getMilestoneForce(state.objectifDepart, state.objectif)
+      : verifierMilestone(state.objectifDepart, state.objectif);
+
+    const blocks = construireMessage(dealsSnap, ancienObjectif, state.objectif, state.objectifDepart, milestone, avanceesSnap);
+
+    console.log(`📤 POST STATUT PUBLIC: objectifDepart=${state.objectifDepart}€ objectif=${state.objectif}€ modeLabel="${state.modeLabel}" deals=${dealsSnap.length} avancees=${avanceesSnap.length}`);
+
+    try {
+      await client.chat.postMessage({ channel: PRINCIPAL_CHANNEL, text: `🚨 COMPTEUR`, blocks });
+    } catch(e) {
+      console.log("statut public raté :", e.message);
+      try {
+        await client.chat.postMessage({
+          channel: event.channel,
+          text: `❌ Erreur au post sur <#${PRINCIPAL_CHANNEL}>. État local mis à jour mais message non envoyé.`,
+        });
+      } catch(_){}
+      return;
+    }
+
+    try {
+      await client.chat.postMessage({
+        channel: event.channel,
+        text: `✅ Compteur posté sur <#${PRINCIPAL_CHANNEL}>.\n• ${dealsSnap.length} deal(s) flushé(s) du buffer\n• ${avanceesSnap.length} ajustement(s) consommé(s)\n• Buffer vidé — le cycle normal reprend.`,
+      });
+    } catch(_){}
+    return;
+  }
+
+  // ── STATUT PRIVATE — preview du compteur tel qu'il serait posté, sans toucher au state ──
+  // Format identique au compteur normal (🚨 COMPTEUR MONEY LISA 🚨). Posté
+  // uniquement dans le channel test, visible par tous ses membres. Aucune
+  // mutation : ni buffer, ni pendingAvancees, ni milestonesVus.
+  const mStatutPrivate = tl.match(/\bstatut\s+(?:priv[ée]e?|private|admin|preview|test)(?=\W|$)/i);
+  if (mStatutPrivate) {
+    if (await refuseIfNotAdmin()) return;
+
+    const dealsSnap     = [...state.buffer];
+    const avanceesSnap  = [...state.pendingAvancees];
+    const ancienObjectif = state.objectif;
+    const totalDealsMRR  = dealsSnap.reduce((s,d) => s + d.montant, 0);
+    const restantApres  = ancienObjectif - totalDealsMRR;
+
+    // Milestone en DRY RUN : on calcule ce qui SERAIT déclenché sans
+    // marquer le seuil comme vu.
+    const milestone = verifierMilestone(state.objectifDepart, restantApres, true);
+
+    const blocks = construireMessage(dealsSnap, ancienObjectif, restantApres, state.objectifDepart, milestone, avanceesSnap);
+
+    try {
+      await client.chat.postMessage({ channel: event.channel, text: `🚨 COMPTEUR (preview)`, blocks });
+    } catch(e) {
+      console.log("statut private raté :", e.message);
+    }
+    return;
+  }
+
+  // ── STATUT (générique, fallback) ──────────────────────────────────────
   if (/\b(?:statut|status|stat[s]?|reste|restant|bilan|avancement|avancem[e]?nt|ou\s*(?:en\s*)?est|où\s*(?:en\s*)?est|où\s*on\s*en|combien|progress|résumé|resume|compteur|recap|récap|show|voir|vois|update|upd8)\b/i.test(tl)) {
     if (await refuseIfNotAdmin()) return;
     await envoyerStatut(event.channel, app.client);

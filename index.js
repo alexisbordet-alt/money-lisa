@@ -2491,7 +2491,7 @@ app.event("app_mention", async ({event,say,client}) => {
   // etc.) et qu'on veut le retirer avant que les commerciaux le voient.
   // Va chercher dans l'historique récent du channel le dernier message
   // posté par le bot, puis chat.delete dessus.
-  const mDelete = tl.match(/\b(?:delete|supprime[rz]?|efface[rz]?|annule[rz]?|retir[eèé]?[rz]?|enleve[rz]?|cancel)\s+(?:le\s+)?(?:dernier?\s+|last\s+)?(?:message|msg|post|compteur)\b/i);
+  const mDelete = tl.match(/\b(?:delete|remove|rm|supprime[rz]?|efface[rz]?|annule[rz]?|retir[eèé]?[rz]?|enleve[rz]?|cancel)\s+(?:le\s+|the\s+)?(?:dernier?\s+|last\s+)?(?:message|msg|post|compteur)\b/i);
   if (mDelete) {
     if (await refuseIfNotAdmin()) return;
     try {

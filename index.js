@@ -26,10 +26,20 @@ const PRINCIPAL_CHANNEL = "C01141BPPHU"; // #koh-mando
 // PERSISTANCE
 // ============================================================
 function chargerState() {
+  const dataMounted = fs.existsSync("/data");
+  console.log(`🚀 [chargerState] STATE_FILE=${STATE_FILE} | /data mounted? ${dataMounted}`);
   try {
-    if (fs.existsSync(STATE_FILE))
-      return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
-  } catch (e) {}
+    if (fs.existsSync(STATE_FILE)) {
+      const raw = fs.readFileSync(STATE_FILE, "utf8");
+      const s = JSON.parse(raw);
+      console.log(`🚀 [chargerState] LOADED from ${STATE_FILE} (${raw.length} chars) — objectifDepart=${s.objectifDepart}€ objectif=${s.objectif}€ modeLabel="${s.modeLabel}" buffer=${(s.buffer||[]).length} pendingAvancees=${(s.pendingAvancees||[]).length}`);
+      return s;
+    } else {
+      console.log(`⚠️  [chargerState] STATE_FILE NOT FOUND at ${STATE_FILE} — falling back to defaultState (objectifDepart=8073)`);
+    }
+  } catch (e) {
+    console.log(`❌ [chargerState] ERROR reading ${STATE_FILE}: ${e.message} — falling back to defaultState`);
+  }
   return {
     modeLabel: "la semaine", objectifDepart: 8073, objectif: 8073,
     buffer: [], milestonesVus: [], tsDejaComptes: [], montantsComptes: {}, salesStats: {}, nbCompteurs: 0,
@@ -55,10 +65,15 @@ function sauvegarderState(s) {
     }
     fs.renameSync(tmp, STATE_FILE);
   } catch(e) {
-    console.error("❌ sauvegarderState a raté :", e.message);
+    console.error(`❌ [sauvegarderState] FAILED on ${STATE_FILE} : ${e.message}`);
     // Fallback : écriture directe pour ne pas perdre l'état si le rename
     // échoue (volume en lecture-seule, etc.).
-    try { fs.writeFileSync(STATE_FILE, json); } catch(_) {}
+    try {
+      fs.writeFileSync(STATE_FILE, json);
+      console.log(`💾 [sauvegarderState] fallback writeFileSync OK (${json.length} chars)`);
+    } catch(e2) {
+      console.error(`❌❌ [sauvegarderState] fallback AUSSI raté : ${e2.message}`);
+    }
   }
 }
 

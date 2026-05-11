@@ -2295,26 +2295,58 @@ async function traiterSuppression({ts,channel}, client) {
 // ============================================================
 // COMMANDES @Money Lisa
 // ============================================================
-// Anti-doublon pour les events app_mention. Slack peut livrer le même event
-// 2x lors de reconnexions Socket Mode ou retries. Sans ce guard, taper
-// `remove avancée 200/90/80` une fois mais avec un retry Slack → handler
-// exécuté 2x → 6 pending au lieu de 3.
-// On garde les 200 dernières event.ts en mémoire (perdu au restart, OK car
-// Slack ne retente jamais d'events vieux de plusieurs minutes).
-const _seenAppMentionTs = new Set();
+// Anti-doublon RENFORCÉ sur app_mention. 3 niveaux de protection :
+// 1) event.ts (timestamp du message) — catche les retries Slack pur
+// 2) event.client_msg_id (ID unique de l'envoi côté Slack) — catche
+//    les doubles deliveries avec ts identique
+// 3) hash content (user+text) sur 15s — catche tout le reste
+// Tout en mémoire, perdu au restart (mais Slack ne retente pas les events
+// vieux de plusieurs minutes, donc OK).
+const _seenAppMentionTs = new Set();        // event.ts
+const _seenAppMentionMsgIds = new Set();    // event.client_msg_id
+const _recentContent = new Map();           // (user+text) → timestamp
+const DEDUP_CONTENT_WINDOW_MS = 15000;       // 15s
+
 app.event("app_mention", async ({event,say,client}) => {
-  // Skip si déjà traité cet event_ts (Slack a délivré 2x)
+  // Garde 1 : event.ts
   if (event.ts && _seenAppMentionTs.has(event.ts)) {
-    console.log(`⚠️ Mention doublon ignorée (ts=${event.ts}) : ${event.text.slice(0,80)}`);
+    console.log(`⚠️ Mention doublon (event.ts=${event.ts}) ignorée : ${event.text.slice(0,80)}`);
     return;
   }
+  // Garde 2 : event.client_msg_id (Slack assigne un ID unique par message)
+  if (event.client_msg_id && _seenAppMentionMsgIds.has(event.client_msg_id)) {
+    console.log(`⚠️ Mention doublon (client_msg_id=${event.client_msg_id}) ignorée : ${event.text.slice(0,80)}`);
+    return;
+  }
+  // Garde 3 : même user+text dans les 15 dernières secondes
+  const contentKey = `${event.user}::${event.text}`;
+  const now = Date.now();
+  const lastSeen = _recentContent.get(contentKey);
+  if (lastSeen && now - lastSeen < DEDUP_CONTENT_WINDOW_MS) {
+    console.log(`⚠️ Mention doublon (content match <${DEDUP_CONTENT_WINDOW_MS/1000}s) ignorée : ${event.text.slice(0,80)}`);
+    return;
+  }
+
+  // Enregistre tous les marqueurs
   if (event.ts) {
     _seenAppMentionTs.add(event.ts);
-    // Cap à 200 entrées (évite la fuite mémoire)
     if (_seenAppMentionTs.size > 200) {
       const oldest = _seenAppMentionTs.values().next().value;
       _seenAppMentionTs.delete(oldest);
     }
+  }
+  if (event.client_msg_id) {
+    _seenAppMentionMsgIds.add(event.client_msg_id);
+    if (_seenAppMentionMsgIds.size > 200) {
+      const oldest = _seenAppMentionMsgIds.values().next().value;
+      _seenAppMentionMsgIds.delete(oldest);
+    }
+  }
+  _recentContent.set(contentKey, now);
+  // Cleanup auto du content dedup
+  if (_recentContent.size > 500) {
+    const oldest = _recentContent.keys().next().value;
+    _recentContent.delete(oldest);
   }
 
   mettreAJourPeriode();

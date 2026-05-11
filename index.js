@@ -2210,6 +2210,10 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
       }
     }
 
+    // DIAG : dump l'état complet juste avant de poster — permet de tracer
+    // les cas où objectifDepart/modeLabel ne correspondent pas à ce qu'on
+    // attend (race condition, state stale après redéploy Railway, etc).
+    console.log(`📤 POST COMPTEUR: objectifDepart=${state.objectifDepart}€ objectif=${state.objectif}€ modeLabel="${state.modeLabel}" objectifNbJours=${state.objectifNbJours} dateDebut=${state.objectifDateDebut} channel=${channel}`);
     try {
       await client.chat.postMessage({channel, text:`🚨 COMPTEUR`, blocks});
       // Post réussi : on retire UNIQUEMENT les avancées du snapshot
@@ -2470,6 +2474,59 @@ app.event("app_mention", async ({event,say,client}) => {
     return;
   }
 
+  // ── DELETE LAST MESSAGE — supprime le dernier message de Money Lisa sur le channel principal ──
+  // Utile quand un compteur a été posté avec une erreur (mauvais objectif,
+  // etc.) et qu'on veut le retirer avant que les commerciaux le voient.
+  // Va chercher dans l'historique récent du channel le dernier message
+  // posté par le bot, puis chat.delete dessus.
+  const mDelete = tl.match(/\b(?:delete|supprime[rz]?|efface[rz]?|annule[rz]?|retir[eèé]?[rz]?|enleve[rz]?|cancel)\s+(?:le\s+)?(?:dernier?\s+|last\s+)?(?:message|msg|post|compteur)\b/i);
+  if (mDelete) {
+    if (await refuseIfNotAdmin()) return;
+    try {
+      const hist = await client.conversations.history({ channel: PRINCIPAL_CHANNEL, limit: 30 });
+      // Identifie le bot id pour ne supprimer QUE les messages de Money Lisa
+      let botUserId = state._botUserId;
+      if (!botUserId) {
+        try {
+          const auth = await client.auth.test();
+          botUserId = auth.user_id;
+          state._botUserId = botUserId;
+          sauvegarderState(state);
+        } catch(_) { botUserId = null; }
+      }
+      const lastBotMsg = (hist.messages || []).find(m =>
+        (botUserId && m.user === botUserId) || m.bot_id || (m.app_id && m.subtype !== 'channel_join')
+      );
+      if (!lastBotMsg) {
+        try {
+          await client.chat.postMessage({
+            channel: event.channel,
+            text: `❌ Aucun message récent de Money Lisa trouvé dans <#${PRINCIPAL_CHANNEL}>.`,
+          });
+        } catch(_){}
+        return;
+      }
+      await client.chat.delete({ channel: PRINCIPAL_CHANNEL, ts: lastBotMsg.ts });
+      console.log(`🗑️  delete last message : message ts=${lastBotMsg.ts} supprimé sur PRINCIPAL_CHANNEL`);
+      try {
+        const preview = (lastBotMsg.text || '').slice(0, 80) || '(message sans texte brut, blocks uniquement)';
+        await client.chat.postMessage({
+          channel: event.channel,
+          text: `✅ Dernier message de Money Lisa supprimé sur <#${PRINCIPAL_CHANNEL}>.\n• ts: ${lastBotMsg.ts}\n• preview: _${preview}_`,
+        });
+      } catch(_){}
+    } catch(e) {
+      console.log("delete last message raté :", e.message);
+      try {
+        await client.chat.postMessage({
+          channel: event.channel,
+          text: `❌ Erreur lors de la suppression : ${e.message}. Le bot a peut-être besoin du scope \`chat:write\` (déjà en place) et du droit de delete (seulement les messages qu'il a postés lui-même).`,
+        });
+      } catch(_){}
+    }
+    return;
+  }
+
   // ── UPDATE — flush manuel du compteur sur le channel principal ──
   // Tape `@Money Lisa update` dans le channel test : ça flushe TOUT
   // (buffer + pendingAvancees) et poste un compteur sur PRINCIPAL_CHANNEL.
@@ -2516,6 +2573,8 @@ app.event("app_mention", async ({event,say,client}) => {
     }
 
     // 6) Post sur le channel principal
+    // DIAG : dump l'état complet juste avant de poster.
+    console.log(`📤 POST UPDATE: objectifDepart=${state.objectifDepart}€ objectif=${state.objectif}€ modeLabel="${state.modeLabel}" objectifNbJours=${state.objectifNbJours} dateDebut=${state.objectifDateDebut}`);
     try {
       await client.chat.postMessage({ channel: PRINCIPAL_CHANNEL, text: `🔄 Compteur mis à jour`, blocks });
       console.log(`🔄 update : compteur posté sur PRINCIPAL_CHANNEL — ${dealsSnap.length} deals, ${avanceesSnap.length} avancées consommées`);

@@ -2317,8 +2317,9 @@ app.event("app_mention", async ({event,say,client}) => {
   // NUM_MULTI : pour les avancées, on accepte plusieurs montants empilés
   // en une commande, qui s'afficheront comme des line-items distincts
   // dans le prochain compteur. Séparateurs supportés : `+`, `,`, `;`,
-  // ` et ` (avec espaces). Ex : `80+90`, `80, 90`, `232 et 268`.
-  const NUM_MULTI  = /([\d,.\sk+et;]+)/i;
+  // `/`, ` et ` (avec espaces). Ex : `80+90`, `80, 90`, `232 et 268`,
+  // `200/90/80/45`.
+  const NUM_MULTI  = /([\d,.\sk+et;\/]+)/i;
 
   // On accepte les 2 ordres : `add avancée 7900` (qual→num) ET `add 7900 avancée` (num→qual).
   // SEP gère les prépositions ("de"/"à"/"a") entre les morceaux dans les 2 sens.
@@ -2336,11 +2337,11 @@ app.event("app_mention", async ({event,say,client}) => {
     || tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+NUM_MULTI.source+SEP.source+QUAL_AVA.source, "i"));
 
   // parseMontants : "80+90" → [80, 90] ; "150K" → [150000] ; "80, 90" → [80, 90] ;
-  // "232 et 268" → [232, 268] ; "100;200" → [100, 200].
+  // "232 et 268" → [232, 268] ; "100;200" → [100, 200] ; "200/90/80/45" → [200,90,80,45].
   // Rejette les morceaux non parsables (return [] si rien de valide).
   const parseMontants = (raw) => {
     if (!raw) return [];
-    return raw.split(/\s+et\s+|[+,;]/i).map(s => s.trim()).filter(Boolean)
+    return raw.split(/\s+et\s+|[+,;\/]/i).map(s => s.trim()).filter(Boolean)
       .map(s => extraireObjectif(s)).filter(n => n && !isNaN(n) && n > 0);
   };
 
@@ -2745,6 +2746,11 @@ app.event("app_mention", async ({event,say,client}) => {
   const mObj = texte.match(new RegExp(RE_OBJ.source + /\s*(.*)/.source, "i"));
   if (mObj) {
     const reste=mObj[1].trim();
+    // Flag 'private' : si présent dans le texte, on applique l'objectif mais
+    // on SAUTE le broadcast sur le channel principal. Utile quand on veut
+    // corriger l'état du bot sans repolluer les commerciaux avec un nouveau
+    // message "NOUVEL OBJECTIF". Synonymes : private/silent/silencieux/sans broadcast/etc.
+    const isPrivate = /\b(?:private|priv[ée]e?|silent|silencieux|sans\s+(?:broadcast|annonce|message|notif|notification)|no\s+broadcast|admin\s*only|silently)\b/i.test(tl);
     // "obj X sur Y" → avancée X, total Y
     const mSur = reste.match(/(?:de\s+)?(\d[\d\s,\.]*k?)\s*(?:sur|\/)\s*(\d[\d\s,\.]*k?)/i);
     if (mSur) {
@@ -2761,9 +2767,9 @@ app.event("app_mention", async ({event,say,client}) => {
         const pctDeja = Math.round((avance/total)*100);
         for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
         sauvegarderState(state);
-        await say(`🎯 *Objectif défini* _(${periode})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Déjà fait : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(restant)}€*`);
-        // Broadcast sur le channel principal (sans heure de fin)
-        await broadcastObjectifPrincipal(client, periode, total, restant);
+        await say(`🎯 *Objectif défini* _(${periode})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Déjà fait : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(restant)}€*${isPrivate ? `\n_🔒 Mode private — pas de broadcast sur <#${PRINCIPAL_CHANNEL}>._` : ''}`);
+        // Broadcast sur le channel principal (sauf si flag private)
+        if (!isPrivate) await broadcastObjectifPrincipal(client, periode, total, restant);
         return;
       }
     }
@@ -2785,9 +2791,9 @@ app.event("app_mention", async ({event,say,client}) => {
     } else { state.objectifNbJours=null; state.objectifDateDebut=null; }
     sauvegarderState(state);
     const explication = matchJours?` _(jour 1/${state.objectifNbJours}, se met à jour automatiquement)_`:matchMois?` _(${state.objectifNbJours} jours restants ce mois)_`:"";
-    await say(`🎯 L'objectif pour *${periode}* est fixé à *${nouvel.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*${explication}`);
-    // Broadcast sur le channel principal (sans heure de fin)
-    await broadcastObjectifPrincipal(client, periode, nouvel, nouvel);
+    await say(`🎯 L'objectif pour *${periode}* est fixé à *${nouvel.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*${explication}${isPrivate ? `\n_🔒 Mode private — pas de broadcast sur <#${PRINCIPAL_CHANNEL}>._` : ''}`);
+    // Broadcast sur le channel principal (sauf si flag private)
+    if (!isPrivate) await broadcastObjectifPrincipal(client, periode, nouvel, nouvel);
     return;
   }
 

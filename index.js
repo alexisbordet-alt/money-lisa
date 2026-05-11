@@ -2405,6 +2405,7 @@ app.event("app_mention", async ({event,say,client}) => {
       state.pendingAvancees.push({ montant: m, sens: 'add', ts: Date.now() });
     });
     sauvegarderState(state);
+    console.log(`📝 ADD AVANCÉE par <@${event.user}> : +[${montants.join(',')}]€ — state.pendingAvancees=${state.pendingAvancees.length} entries (sens: ${state.pendingAvancees.map(a=>`${a.sens}:${a.montant}`).join(',')}) — texte: ${JSON.stringify(texte.slice(0,200))}`);
     const liste = montants.map(m => `+${fmt(m)}€`).join(", ");
     try {
       await client.chat.postMessage({
@@ -2426,6 +2427,7 @@ app.event("app_mention", async ({event,say,client}) => {
       state.pendingAvancees.push({ montant: m, sens: 'remove', ts: Date.now() });
     });
     sauvegarderState(state);
+    console.log(`📝 REMOVE AVANCÉE par <@${event.user}> : −[${montants.join(',')}]€ — state.pendingAvancees=${state.pendingAvancees.length} entries (sens: ${state.pendingAvancees.map(a=>`${a.sens}:${a.montant}`).join(',')}) — texte: ${JSON.stringify(texte.slice(0,200))}`);
     const liste = montants.map(m => `−${fmt(m)}€`).join(", ");
     try {
       await client.chat.postMessage({
@@ -2467,6 +2469,7 @@ app.event("app_mention", async ({event,say,client}) => {
       state.pendingAvancees.push({ montant: m, sens: 'remove', ts: Date.now() });
     });
     sauvegarderState(state);
+    console.log(`📝 REMOVE (fallback alias avancée) par <@${event.user}> : −[${montants.join(',')}]€ — state.pendingAvancees=${state.pendingAvancees.length} entries (sens: ${state.pendingAvancees.map(a=>`${a.sens}:${a.montant}`).join(',')}) — texte: ${JSON.stringify(texte.slice(0,200))}`);
     const liste = montants.map(m => `−${fmt(m)}€`).join(", ");
     try {
       await client.chat.postMessage({

@@ -2295,7 +2295,28 @@ async function traiterSuppression({ts,channel}, client) {
 // ============================================================
 // COMMANDES @Money Lisa
 // ============================================================
+// Anti-doublon pour les events app_mention. Slack peut livrer le même event
+// 2x lors de reconnexions Socket Mode ou retries. Sans ce guard, taper
+// `remove avancée 200/90/80` une fois mais avec un retry Slack → handler
+// exécuté 2x → 6 pending au lieu de 3.
+// On garde les 200 dernières event.ts en mémoire (perdu au restart, OK car
+// Slack ne retente jamais d'events vieux de plusieurs minutes).
+const _seenAppMentionTs = new Set();
 app.event("app_mention", async ({event,say,client}) => {
+  // Skip si déjà traité cet event_ts (Slack a délivré 2x)
+  if (event.ts && _seenAppMentionTs.has(event.ts)) {
+    console.log(`⚠️ Mention doublon ignorée (ts=${event.ts}) : ${event.text.slice(0,80)}`);
+    return;
+  }
+  if (event.ts) {
+    _seenAppMentionTs.add(event.ts);
+    // Cap à 200 entrées (évite la fuite mémoire)
+    if (_seenAppMentionTs.size > 200) {
+      const oldest = _seenAppMentionTs.values().next().value;
+      _seenAppMentionTs.delete(oldest);
+    }
+  }
+
   mettreAJourPeriode();
   const texte=event.text, tl=texte.toLowerCase();
   console.log("🔔 Mention :",texte);

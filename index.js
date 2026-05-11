@@ -2436,8 +2436,10 @@ app.event("app_mention", async ({event,say,client}) => {
   }
 
   // ── ADD (sans qualifier — backward compat) : = ADD OBJECTIF ─────
+  // Guard /\d/.test : le verbe peut être un faux positif ("ajoute un commentaire")
+  // si le capture group ne contient pas de chiffre, on n'entre PAS dans ce handler.
   const mAdd=tl.match(/\b(?:add|ajout(?:e[rz]?)?|rajout(?:e[rz]?)?|ajoute|rajoute|augment(?:e[rz]?)?|monte[rz]?|hausse|boost(?:e[rz]?)?|incr[eé]ment(?:e[rz]?)?|mets?|mettre|mis)\b\s*[àaáâäde@\s]?\s*([\d,.\s]+k?)/i);
-  if (mAdd) {
+  if (mAdd && /\d/.test(mAdd[1])) {
     if (await refuseIfNotAdmin()) return;
     const ajout=extraireObjectif(mAdd[1].trim());
     if (!ajout||isNaN(ajout)){await say(`❌ Montant non reconnu.`);return;}
@@ -2452,8 +2454,10 @@ app.event("app_mention", async ({event,say,client}) => {
   // ── REMOVE (sans qualifier — backward compat) : = REMOVE AVANCÉE = close enregistré ──
   // Comme remove avancée explicite : empilé dans pendingAvancees pour
   // affichage au prochain compteur (avec support du multi-montant `80+90`).
+  // Guard /\d/.test : sans chiffre dans le capture, c'est un faux positif
+  // (ex: "supprime le dernier message", "annule le post"...) — on n'entre pas.
   const mRem=tl.match(/\b(?:remove|rmv|supprim(?:e[rz]?)?|retir(?:e[rz]?)?|effa(?:ce[rz]?)?|annul(?:e[rz]?)?|vir(?:e[rz]?)?|d[eé]duis?|deduis?|soustrai[tsr]?|soustraire|enlev(?:e[rz]?)?|enlève|baiss(?:e[rz]?)?|diminu(?:e[rz]?)?|[eé]crase[rz]?)\b\s*[àaáâäde@\s]?\s*([\d,.\sk+]+)/i);
-  if (mRem) {
+  if (mRem && /\d/.test(mRem[1])) {
     if (await refuseIfNotAdmin()) return;
     const montants = parseMontants(mRem[1]);
     if (montants.length === 0) { await say(`❌ Montant non reconnu.`); return; }
@@ -2538,7 +2542,9 @@ app.event("app_mention", async ({event,say,client}) => {
   // attendre les 3 deals naturels avant de voir les chiffres mis à jour.
   // Après, le cycle normal reprend (buffer vide, prochain flush au 3e deal).
   const mUpdate = tl.match(/\b(?:update|push|broadcast|maj|maj\s*compteur|forc[eé]r?\s*compteur|compteur\s*now|now\s*compteur|envoie\s*(?:le\s*)?compteur)\b/i);
-  if (mUpdate) {
+  // Guard !/\bstatut\b/ : si l'user a tapé "statut broadcast" il veut
+  // statut public (qui matchera plus bas), pas update. On laisse passer.
+  if (mUpdate && !/\bstatut\b/i.test(tl)) {
     if (await refuseIfNotAdmin()) return;
 
     // 1) Snapshot tout ce qu'on va consommer

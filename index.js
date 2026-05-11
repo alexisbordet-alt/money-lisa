@@ -2546,9 +2546,12 @@ app.event("app_mention", async ({event,say,client}) => {
   // attendre les 3 deals naturels avant de voir les chiffres mis à jour.
   // Après, le cycle normal reprend (buffer vide, prochain flush au 3e deal).
   const mUpdate = tl.match(/\b(?:update|push|broadcast|maj|maj\s*compteur|forc[eé]r?\s*compteur|compteur\s*now|now\s*compteur|envoie\s*(?:le\s*)?compteur)\b/i);
-  // Guard !/\bstatut\b/ : si l'user a tapé "statut broadcast" il veut
-  // statut public (qui matchera plus bas), pas update. On laisse passer.
-  if (mUpdate && !/\bstatut\b/i.test(tl)) {
+  // Guards :
+  // - !/\bstatut\b/ : si l'user a tapé "statut broadcast" il veut statut public
+  // - !RE_PRIVATE : si l'user a tapé "objectif 23k sans broadcast" il veut
+  //   un objectif silencieux, pas un broadcast update.
+  const _isPrivateForUpdateGuard = /\b(?:private|priv[ée]e?|silent|silencieux|sans\s+(?:broadcast|annonce|message|notif|notification)|no\s+broadcast|admin\s*only|silently)(?=\W|$)/i.test(tl);
+  if (mUpdate && !/\bstatut\b/i.test(tl) && !_isPrivateForUpdateGuard) {
     if (await refuseIfNotAdmin()) return;
 
     // 1) Snapshot tout ce qu'on va consommer
@@ -2753,7 +2756,7 @@ app.event("app_mention", async ({event,say,client}) => {
     // on SAUTE le broadcast sur le channel principal. Utile quand on veut
     // corriger l'état du bot sans repolluer les commerciaux avec un nouveau
     // message "NOUVEL OBJECTIF". Synonymes : private/silent/silencieux/sans broadcast/etc.
-    const isPrivate = /\b(?:private|priv[ée]e?|silent|silencieux|sans\s+(?:broadcast|annonce|message|notif|notification)|no\s+broadcast|admin\s*only|silently)\b/i.test(tl);
+    const isPrivate = /\b(?:private|priv[ée]e?|silent|silencieux|sans\s+(?:broadcast|annonce|message|notif|notification)|no\s+broadcast|admin\s*only|silently)(?=\W|$)/i.test(tl);
     // "obj X sur Y" → avancée X, total Y
     // Si X est multi-montants (séparés UNIQUEMENT par `/`), chaque montant
     // devient un line-item dans le prochain compteur (via pendingAvancees).

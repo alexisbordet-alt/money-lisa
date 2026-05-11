@@ -2316,10 +2316,9 @@ app.event("app_mention", async ({event,say,client}) => {
   const NUM        = /([\d,.\s]+k?)/;
   // NUM_MULTI : pour les avancées, on accepte plusieurs montants empilés
   // en une commande, qui s'afficheront comme des line-items distincts
-  // dans le prochain compteur. Séparateurs supportés : `+`, `,`, `;`,
-  // `/`, ` et ` (avec espaces). Ex : `80+90`, `80, 90`, `232 et 268`,
-  // `200/90/80/45`.
-  const NUM_MULTI  = /([\d,.\sk+et;\/]+)/i;
+  // dans le prochain compteur. UN SEUL séparateur : `/`.
+  // Ex : `200/90/80/45`, `1k/2k/3k`.
+  const NUM_MULTI  = /([\d,.\sk\/]+)/i;
 
   // On accepte les 2 ordres : `add avancée 7900` (qual→num) ET `add 7900 avancée` (num→qual).
   // SEP gère les prépositions ("de"/"à"/"a") entre les morceaux dans les 2 sens.
@@ -2336,12 +2335,13 @@ app.event("app_mention", async ({event,say,client}) => {
        tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+QUAL_AVA.source+SEP.source+NUM_MULTI.source, "i"))
     || tl.match(new RegExp("\\b"+VERBES_REM.source+"\\b"+SEP.source+NUM_MULTI.source+SEP.source+QUAL_AVA.source, "i"));
 
-  // parseMontants : "80+90" → [80, 90] ; "150K" → [150000] ; "80, 90" → [80, 90] ;
-  // "232 et 268" → [232, 268] ; "100;200" → [100, 200] ; "200/90/80/45" → [200,90,80,45].
+  // parseMontants : split UNIQUEMENT sur `/`.
+  // Ex : "200/90/80/45" → [200, 90, 80, 45] ; "1k/2k" → [1000, 2000].
+  // Pour un seul montant, pas besoin de séparateur : "1697" → [1697].
   // Rejette les morceaux non parsables (return [] si rien de valide).
   const parseMontants = (raw) => {
     if (!raw) return [];
-    return raw.split(/\s+et\s+|[+,;\/]/i).map(s => s.trim()).filter(Boolean)
+    return raw.split(/\//).map(s => s.trim()).filter(Boolean)
       .map(s => extraireObjectif(s)).filter(n => n && !isNaN(n) && n > 0);
   };
 
@@ -2755,12 +2755,11 @@ app.event("app_mention", async ({event,say,client}) => {
     // message "NOUVEL OBJECTIF". Synonymes : private/silent/silencieux/sans broadcast/etc.
     const isPrivate = /\b(?:private|priv[ée]e?|silent|silencieux|sans\s+(?:broadcast|annonce|message|notif|notification)|no\s+broadcast|admin\s*only|silently)\b/i.test(tl);
     // "obj X sur Y" → avancée X, total Y
-    // Si X est multi-montants (séparés par /+,;et), chaque montant devient
-    // un line-item dans le prochain compteur (via pendingAvancees).
+    // Si X est multi-montants (séparés UNIQUEMENT par `/`), chaque montant
+    // devient un line-item dans le prochain compteur (via pendingAvancees).
     // Ex : `objectif 97/149/80 sur 23000` → 3 line-items.
-    // Note : '/' n'est plus accepté comme synonyme de 'sur' — on EXIGE le mot 'sur'
-    // pour éviter le conflit avec le séparateur de montants.
-    const mSur = reste.match(/(?:de\s+)?([\d\s,.\/+;k][\d\s,.\/+et;k]*?)\s+sur\s+(\d[\d\s,\.]*k?)/i);
+    // Note : '/' n'est plus accepté comme synonyme de 'sur' — on EXIGE le mot 'sur'.
+    const mSur = reste.match(/(?:de\s+)?([\d\s,.\/k]+?)\s+sur\s+(\d[\d\s,\.]*k?)/i);
     if (mSur) {
       const avanceList = parseMontants(mSur[1].trim());
       const total      = extraireObjectif(mSur[2].trim());

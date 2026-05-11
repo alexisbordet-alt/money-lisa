@@ -2755,22 +2755,53 @@ app.event("app_mention", async ({event,say,client}) => {
     // message "NOUVEL OBJECTIF". Synonymes : private/silent/silencieux/sans broadcast/etc.
     const isPrivate = /\b(?:private|priv[ée]e?|silent|silencieux|sans\s+(?:broadcast|annonce|message|notif|notification)|no\s+broadcast|admin\s*only|silently)\b/i.test(tl);
     // "obj X sur Y" → avancée X, total Y
-    const mSur = reste.match(/(?:de\s+)?(\d[\d\s,\.]*k?)\s*(?:sur|\/)\s*(\d[\d\s,\.]*k?)/i);
+    // Si X est multi-montants (séparés par /+,;et), chaque montant devient
+    // un line-item dans le prochain compteur (via pendingAvancees).
+    // Ex : `objectif 97/149/80 sur 23000` → 3 line-items.
+    // Note : '/' n'est plus accepté comme synonyme de 'sur' — on EXIGE le mot 'sur'
+    // pour éviter le conflit avec le séparateur de montants.
+    const mSur = reste.match(/(?:de\s+)?([\d\s,.\/+;k][\d\s,.\/+et;k]*?)\s+sur\s+(\d[\d\s,\.]*k?)/i);
     if (mSur) {
-      const avance = extraireObjectif(mSur[1].trim());
-      const total  = extraireObjectif(mSur[2].trim());
-      if (avance && total && !isNaN(avance) && !isNaN(total) && total > avance) {
+      const avanceList = parseMontants(mSur[1].trim());
+      const total      = extraireObjectif(mSur[2].trim());
+      const avance     = avanceList.reduce((s,v) => s+v, 0);
+      if (avanceList.length > 0 && total && !isNaN(total) && total > avance) {
         const restant = total - avance;
         const periode = detecterPeriode(reste);
-        console.log(`📝 OBJECTIF RESET via 'objectif X sur Y' par <@${event.user}> dans <#${event.channel}> : ancienTotal=${state.objectifDepart}€ → nouveauTotal=${total}€, avancée=${avance}€, periode=${periode} — texte: ${JSON.stringify(texte.slice(0, 200))}`);
-        state.objectifDepart=total; state.objectif=restant; state.modeLabel=periode;
+        const isMulti = avanceList.length > 1;
+        console.log(`📝 OBJECTIF RESET via 'objectif X sur Y' par <@${event.user}> dans <#${event.channel}> : ancienTotal=${state.objectifDepart}€ → nouveauTotal=${total}€, avancée=${avance}€ (${avanceList.length} montant${isMulti?'s':''}: ${avanceList.join(',')}), periode=${periode} — texte: ${JSON.stringify(texte.slice(0, 200))}`);
+        state.objectifDepart=total; state.modeLabel=periode;
         state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
         state.objectifNbJours=null; state.objectifDateDebut=null;
         state.pendingAvancees=[]; // reset des ajustements en attente du précédent objectif
+        if (isMulti) {
+          // Multi-montants : on les empile dans pendingAvancees pour qu'ils
+          // apparaissent comme line-items dans le prochain compteur. L'état
+          // global reflète déjà la somme via state.objectif initial.
+          state.objectif = total;
+          avanceList.forEach(m => {
+            state.objectif -= m;
+            state.pendingAvancees.push({ montant: m, sens: 'remove', ts: Date.now() });
+          });
+        } else {
+          // Single avance : comportement classique, pas de line-item.
+          state.objectif = restant;
+        }
         const pctDeja = Math.round((avance/total)*100);
         for (const t of [25,50,75,100]) { if (pctDeja>=t && !state.milestonesVus.includes(t)) state.milestonesVus.push(t); }
+        // Si multi-jours dans la période, configure le compteur de jours
+        const matchJoursSur = periode.match(/^les (\d+) prochains jours$/);
+        const matchMoisSur  = periode === "le mois";
+        if (matchJoursSur) {
+          state.objectifNbJours=parseInt(matchJoursSur[1]); state.objectifDateDebut=getDateStr();
+        } else if (matchMoisSur) {
+          const now=new Date();
+          state.objectifNbJours=new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate()+1;
+          state.objectifDateDebut=getDateStr();
+        }
         sauvegarderState(state);
-        await say(`🎯 *Objectif défini* _(${periode})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Déjà fait : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(restant)}€*${isPrivate ? `\n_🔒 Mode private — pas de broadcast sur <#${PRINCIPAL_CHANNEL}>._` : ''}`);
+        const detailLine = isMulti ? `\n• 📋 Détail des avancées : ${avanceList.map(m=>`${fmt(m)}€`).join(' + ')} — apparaîtront comme line-items dans le prochain compteur public` : '';
+        await say(`🎯 *Objectif défini* _(${periode})_\n• 🎯 Objectif total : *${fmt(total)}€*\n• ✅ Déjà fait : *${fmt(avance)}€*\n• ⏳ Reste à faire : *${fmt(restant)}€*${detailLine}${isPrivate ? `\n_🔒 Mode private — pas de broadcast sur <#${PRINCIPAL_CHANNEL}>._` : ''}`);
         // Broadcast sur le channel principal (sauf si flag private)
         if (!isPrivate) await broadcastObjectifPrincipal(client, periode, total, restant);
         return;

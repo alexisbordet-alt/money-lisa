@@ -93,11 +93,6 @@ if (!state.pendingCloses)    state.pendingCloses    = [];
 // — sens 'remove' soustrait du reste à faire (close enregistré),
 // — sens 'add'    ajoute    au reste à faire (annulation d'un close).
 if (!state.pendingAvancees) state.pendingAvancees = [];
-// statutPreview : snapshot du dernier `statut private` pour qu'un
-// `statut public` ultérieur poste exactement le même message.
-// Reset à null quand un nouvel objectif est défini ou après usage public.
-if (state.statutPreview === undefined) state.statutPreview = null;
-
 // ── Mode spécial Astérix ──────────────────────────────────────
 // Mode temporaire activé manuellement pour les semaines "tout casser" :
 // - state.modeSpecial : "asterix" ou null (= classique)
@@ -2700,7 +2695,10 @@ app.event("app_mention", async ({event,say,client}) => {
   // L'annonce d'ouverture, elle, partira sur PRINCIPAL_CHANNEL au
   // PROCHAIN compteur (pas immédiatement à la commande, pour que
   // l'annonce arrive en même temps que le 1er compteur "thématé").
-  const mModeAsterix = tl.match(/\bmode\s+(?:asterix|astérix|asterics|astérics|asterixe)\b/i);
+  // `mode special` est l'alias générique de `mode asterix` — tu pourras
+  // customiser le contenu (announcement, messages) selon le contexte
+  // (repas d'équipe, journée off, etc.) plus tard.
+  const mModeAsterix = tl.match(/\bmode\s+(?:special|spécial|asterix|astérix|asterics|astérics|asterixe)\b/i);
   const mModeNormal  = tl.match(/\bmode\s+(?:normal|classique|standard|défaut|default|off)\b/i);
   const mModeStatut  = tl.match(/\bmode\s+(?:statut|status|stat|info)\b/i);
 
@@ -2847,7 +2845,7 @@ app.event("app_mention", async ({event,say,client}) => {
         state.objectifDepart=total; state.modeLabel=periode;
         state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
         state.objectifNbJours=null; state.objectifDateDebut=null;
-        state.pendingAvancees=[]; state.statutPreview=null; // reset ajustements + preview du précédent objectif
+        state.pendingAvancees=[]; // reset des ajustements en attente du précédent objectif
         if (isMulti) {
           // Multi-montants : on les empile dans pendingAvancees pour qu'ils
           // apparaissent comme line-items dans le prochain compteur. L'état
@@ -2889,7 +2887,7 @@ app.event("app_mention", async ({event,say,client}) => {
     console.log(`📝 OBJECTIF RESET via 'objectif X' par <@${event.user}> dans <#${event.channel}> : ancienTotal=${state.objectifDepart}€ → nouveauTotal=${nouvel}€, periode=${periode} — texte: ${JSON.stringify(texte.slice(0, 200))}`);
     state.objectifDepart=nouvel; state.objectif=nouvel; state.modeLabel=periode;
     state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
-    state.pendingAvancees=[]; state.statutPreview=null; // reset ajustements + preview du précédent objectif
+    state.pendingAvancees=[]; // reset des ajustements en attente du précédent objectif
     if (matchJours) {
       state.objectifNbJours=parseInt(matchJours[1]); state.objectifDateDebut=getDateStr();
     } else if (matchMois) {
@@ -2906,68 +2904,27 @@ app.event("app_mention", async ({event,say,client}) => {
   }
 
   // ── STATUT PUBLIC — flush buffer + post compteur normal sur PRINCIPAL_CHANNEL ──
-  // Comme `update` mais sans changer le titre : c'est le compteur classique
-  // que les commerciaux ont l'habitude de voir.
-  // Si une preview a été générée par `statut private` juste avant, on poste
-  // EXACTEMENT le même message (avec ses deals + avancées au moment de la preview).
+  // Toujours utilise l'état actuel (state.buffer + state.pendingAvancees) au
+  // moment de la commande. PAS de snapshot du private précédent — c'est plus
+  // simple et plus prévisible (pas de risque de double-comptage si un close
+  // arrive entre `statut private` et `statut public`).
   const mStatutPublic = tl.match(/\bstatut\s+(?:public|publique|broadcast|partage[rz]?|envoie[rz]?|diffuser?|public-channel|publish)\b/i);
   if (mStatutPublic) {
     if (await refuseIfNotAdmin()) return;
 
-    let dealsSnap, avanceesSnap, ancienObjectif, totalDealsMRR;
-    let usedPreview = false;
+    const dealsSnap = [...state.buffer];
+    const avanceesSnap = [...state.pendingAvancees];
+    const ancienObjectif = state.objectif;
+    const totalDealsMRR = dealsSnap.reduce((s,d) => s + d.montant, 0);
 
-    if (state.statutPreview) {
-      // ── Cas A : on a une preview en mémoire → on l'utilise ─────────
-      // On poste EXACTEMENT le même message que celui montré en private.
-      const p = state.statutPreview;
-      dealsSnap = p.dealsSnap;
-      avanceesSnap = p.avanceesSnap;
-      ancienObjectif = p.ancienObjectif;
-      totalDealsMRR = dealsSnap.reduce((s,d) => s + d.montant, 0);
-      usedPreview = true;
-
-      // Flush : retirer du buffer/pendings courants les items du snapshot
-      // (par leur ts), pour qu'ils ne soient pas recomptés au prochain
-      // compteur naturel. Les nouveaux deals/pendings arrivés depuis la
-      // preview restent en place dans le buffer pour le prochain cycle.
-      const dealsTs = new Set(dealsSnap.map(d => d.ts));
-      const dealsStillInBuffer = state.buffer.filter(d => dealsTs.has(d.ts));
-      state.buffer = state.buffer.filter(d => !dealsTs.has(d.ts));
-
-      const avanTs = new Set(avanceesSnap.map(a => a.ts));
-      state.pendingAvancees = state.pendingAvancees.filter(a => !avanTs.has(a.ts));
-
-      // Marque les deals du snapshot comme comptés
-      dealsSnap.forEach(d => {
-        if (!state.tsDejaComptes.includes(d.ts)) {
-          state.tsDejaComptes.push(d.ts);
-          state.montantsComptes[d.ts] = d.montant;
-        }
-      });
-      if (state.tsDejaComptes.length > 500) state.tsDejaComptes = state.tsDejaComptes.slice(-500);
-
-      // Décrémente state.objectif UNIQUEMENT pour les deals encore présents
-      // dans le buffer (ceux qui n'étaient pas encore comptabilisés).
-      const remainingDealsMRR = dealsStillInBuffer.reduce((s,d) => s + d.montant, 0);
-      state.objectif -= remainingDealsMRR;
-    } else {
-      // ── Cas B : pas de preview → comportement classique (état actuel) ─
-      dealsSnap = [...state.buffer];
-      avanceesSnap = [...state.pendingAvancees];
-      ancienObjectif = state.objectif;
-      totalDealsMRR = dealsSnap.reduce((s,d) => s + d.montant, 0);
-      state.objectif = ancienObjectif - totalDealsMRR;
-      dealsSnap.forEach(d => {
-        state.tsDejaComptes.push(d.ts);
-        state.montantsComptes[d.ts] = d.montant;
-      });
-      if (state.tsDejaComptes.length > 500) state.tsDejaComptes = state.tsDejaComptes.slice(-500);
-      state.buffer = [];
-      state.pendingAvancees = [];
-    }
-
-    state.statutPreview = null;
+    state.objectif = ancienObjectif - totalDealsMRR;
+    dealsSnap.forEach(d => {
+      state.tsDejaComptes.push(d.ts);
+      state.montantsComptes[d.ts] = d.montant;
+    });
+    if (state.tsDejaComptes.length > 500) state.tsDejaComptes = state.tsDejaComptes.slice(-500);
+    state.buffer = [];
+    state.pendingAvancees = [];
     state.nbCompteurs = (state.nbCompteurs || 0) + 1;
     state.lastChannel = PRINCIPAL_CHANNEL;
     sauvegarderState(state);
@@ -2976,11 +2933,9 @@ app.event("app_mention", async ({event,say,client}) => {
       ? getMilestoneForce(state.objectifDepart, state.objectif)
       : verifierMilestone(state.objectifDepart, state.objectif);
 
-    // restant à afficher : pour la preview, c'est ancien - totalDeals (cohérent avec ce qui était montré en private)
-    const restantAffiche = usedPreview ? (ancienObjectif - totalDealsMRR) : state.objectif;
-    const blocks = construireMessage(dealsSnap, ancienObjectif, restantAffiche, state.objectifDepart, milestone, avanceesSnap);
+    const blocks = construireMessage(dealsSnap, ancienObjectif, state.objectif, state.objectifDepart, milestone, avanceesSnap);
 
-    console.log(`📤 POST STATUT PUBLIC: usedPreview=${usedPreview} objectifDepart=${state.objectifDepart}€ objectif=${state.objectif}€ modeLabel="${state.modeLabel}" deals=${dealsSnap.length} avancees=${avanceesSnap.length}`);
+    console.log(`📤 POST STATUT PUBLIC: objectifDepart=${state.objectifDepart}€ objectif=${state.objectif}€ modeLabel="${state.modeLabel}" deals=${dealsSnap.length} avancees=${avanceesSnap.length}`);
 
     try {
       await client.chat.postMessage({ channel: PRINCIPAL_CHANNEL, text: `🚨 COMPTEUR`, blocks });
@@ -2998,7 +2953,7 @@ app.event("app_mention", async ({event,say,client}) => {
     try {
       await client.chat.postMessage({
         channel: event.channel,
-        text: `✅ Compteur posté sur <#${PRINCIPAL_CHANNEL}>.\n• ${dealsSnap.length} deal(s) flushé(s)\n• ${avanceesSnap.length} ajustement(s) consommé(s)${usedPreview ? '\n• Message identique au statut private précédent' : ''}`,
+        text: `✅ Compteur posté sur <#${PRINCIPAL_CHANNEL}>.\n• ${dealsSnap.length} deal(s) flushé(s)\n• ${avanceesSnap.length} ajustement(s) consommé(s)`,
       });
     } catch(_){}
     return;
@@ -3008,8 +2963,7 @@ app.event("app_mention", async ({event,say,client}) => {
   // Format identique au compteur normal (🚨 COMPTEUR MONEY LISA 🚨). Posté
   // uniquement dans le channel test, visible par tous ses membres. Aucune
   // mutation : ni buffer, ni pendingAvancees, ni milestonesVus.
-  // Mémorise la preview dans state.statutPreview : si un `statut public`
-  // suit, il enverra exactement le même message sur PRINCIPAL_CHANNEL.
+  // Simple preview de l'état actuel — pas de mémorisation pour public.
   const mStatutPrivate = tl.match(/\bstatut\s+(?:priv[ée]e?|private|admin|preview|test)(?=\W|$)/i);
   if (mStatutPrivate) {
     if (await refuseIfNotAdmin()) return;
@@ -3025,16 +2979,6 @@ app.event("app_mention", async ({event,say,client}) => {
     const milestone = verifierMilestone(state.objectifDepart, restantApres, true);
 
     const blocks = construireMessage(dealsSnap, ancienObjectif, restantApres, state.objectifDepart, milestone, avanceesSnap);
-
-    // Mémorise la preview pour qu'un statut public ultérieur poste le même message
-    state.statutPreview = {
-      dealsSnap: dealsSnap.map(d => ({ ts: d.ts, montant: d.montant, leads: d.leads, user: d.user, userId: d.userId })),
-      avanceesSnap: avanceesSnap.map(a => ({ ts: a.ts, montant: a.montant, sens: a.sens })),
-      ancienObjectif,
-      objectifDepart: state.objectifDepart,
-      modeLabel: state.modeLabel,
-    };
-    sauvegarderState(state);
 
     try {
       await client.chat.postMessage({ channel: event.channel, text: `🚨 COMPTEUR (preview)`, blocks });

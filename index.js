@@ -1723,21 +1723,56 @@ function construireMessageModif(restant, objectifDepart, msgTexte, isSuppression
 // ============================================================
 // TOP SALES
 // ============================================================
+// 5 périodes supportées : hourly, daily, weekly (défaut), monthly, alltime
+// 2 modes : "valeur" (= MRR, défaut) ou "closes" (= nb de deals)
+//
+// Syntaxe utilisateur :
+//   top sales MRR semaine    → mode valeur, période weekly
+//   top sales close mois     → mode closes, période monthly
+//   top sales heure          → MRR (défaut), période hourly
+//   top sales close all time → closes, période alltime
 function detecterPeriodeTopSales(texte) {
-  return /daily|journ[eé]e?|aujourd|ajd|aujrd|day\b/i.test(texte) ? "daily" : "weekly";
+  if (/\b(?:heure|hour|hourly|maintenant|now)\b/i.test(texte))          return "hourly";
+  if (/\b(?:mois|month|monthly|mensuel)\b/i.test(texte))                return "monthly";
+  if (/\b(?:all\s*time|alltime|tout(?:\s+le\s+temps)?|global|d[eé]but|histo(?:rique)?)\b/i.test(texte)) return "alltime";
+  if (/\b(?:daily|aujourd|ajd|aujrd|today|jour\b|journ[eé]e|day\b)\b/i.test(texte)) return "daily";
+  if (/\b(?:semaine|week|weekly|hebdo)\b/i.test(texte))                  return "weekly";
+  return "weekly"; // défaut
 }
 function detecterModeTopSales(texte) {
-  return /valeur|mrr|montant|chiffre|€|euro/i.test(texte) ? "valeur" : "closes";
+  // Priorité 1 : "close" explicite (nouveau nommage demandé par le user)
+  if (/\bclose[sr]?\b|\bnombre\b|\bcount\b/i.test(texte)) return "closes";
+  // Priorité 2 : "MRR" ou autre keyword monnaie
+  if (/\bvaleur\b|\bmrr\b|\bmontant\b|\bchiffre\b|€|\beuro\b/i.test(texte)) return "valeur";
+  // Défaut : MRR (= la métrique qui parle le plus à la team commerciale)
+  return "valeur";
 }
 function calculerTopSales(periode, mode) {
-  const now=new Date(), dateStr=now.toISOString().split("T")[0], weekStr=getWeekKey(now);
-  const scores={};
-  for (const [uid,data] of Object.entries(state.salesStats)) {
-    const closes=(data.closes||[]).filter(c=>periode==="daily"?c.date===dateStr:c.week===weekStr);
-    if (closes.length===0) continue;
-    scores[uid]={name:data.name,closes:closes.length,mrr:closes.reduce((s,c)=>s+c.montant,0)};
+  const now      = new Date();
+  const dateStr  = getDateStr(now);          // YYYY-MM-DD Paris
+  const weekStr  = getWeekKey(now);
+  const monthStr = dateStr.slice(0, 7);      // YYYY-MM
+  const oneHourAgoMs = now.getTime() - 60 * 60 * 1000;
+
+  const scores = {};
+  for (const [uid, data] of Object.entries(state.salesStats)) {
+    let closes = data.closes || [];
+    if (periode === "hourly") {
+      closes = closes.filter(c => (parseFloat(c.ts) * 1000) >= oneHourAgoMs);
+    } else if (periode === "daily") {
+      closes = closes.filter(c => c.date === dateStr);
+    } else if (periode === "weekly") {
+      closes = closes.filter(c => c.week === weekStr);
+    } else if (periode === "monthly") {
+      closes = closes.filter(c => c.date && c.date.startsWith(monthStr));
+    }
+    // alltime → pas de filtre
+    if (closes.length === 0) continue;
+    scores[uid] = { name: data.name, closes: closes.length, mrr: closes.reduce((s,c) => s + c.montant, 0) };
   }
-  return Object.values(scores).sort((a,b)=>mode==="valeur"?b.mrr-a.mrr:b.closes-a.closes).slice(0,3);
+  return Object.values(scores)
+    .sort((a,b) => mode === "valeur" ? b.mrr - a.mrr : b.closes - a.closes)
+    .slice(0, 3);
 }
 const MESSAGES_TOP_SALES_FIN = [
   "Continuez comme ça la team 😤🔥","Voilà ce qu'on veut voir. Bravo les boss 💪",
@@ -1750,13 +1785,19 @@ const MESSAGES_TOP_SALES_FIN = [
   "J'ai le seum pour l'objectif tellement vous lui faites du mal 😤🔥",
 ];
 function formaterTopSales(top, periode, mode) {
-  const periodeLabel=periode==="daily"?"la journée":"la semaine";
-  const modeLabel=mode==="valeur"?"MRR":"nombre de closes";
-  const medals=["🥇","🥈","🥉"];
-  if (top.length===0) return `📊 *Top Sales — ${periodeLabel}*\n\nAucun deal enregistré pour l'instant. Allez les gars, on ouvre le bal ! 🚀`;
-  const lignes=top.map((s,i)=>mode==="valeur"
-    ?`${medals[i]}  *${s.name}* — ${s.mrr.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€ MRR (${s.closes} close${s.closes>1?"s":""})`
-    :`${medals[i]}  *${s.name}* — ${s.closes} close${s.closes>1?"s":""} (${s.mrr.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€ MRR)`
+  const periodeLabel = {
+    hourly:  "la dernière heure",
+    daily:   "la journée",
+    weekly:  "la semaine",
+    monthly: "le mois",
+    alltime: "tout l'historique",
+  }[periode] || "la semaine";
+  const modeLabel = mode === "valeur" ? "MRR" : "nombre de closes";
+  const medals = ["🥇","🥈","🥉"];
+  if (top.length === 0) return `📊 *Top Sales — ${periodeLabel}*\n\nAucun deal enregistré sur cette période. Allez les gars, on ouvre le bal ! 🚀`;
+  const lignes = top.map((s,i) => mode === "valeur"
+    ? `${medals[i]}  *${s.name}* — ${s.mrr.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€ MRR (${s.closes} close${s.closes>1?"s":""})`
+    : `${medals[i]}  *${s.name}* — ${s.closes} close${s.closes>1?"s":""} (${s.mrr.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€ MRR)`
   ).join("\n");
   return `🏆  *TOP SALES — ${periodeLabel.toUpperCase()} (${modeLabel})*\n\n${lignes}\n\n${pick(MESSAGES_TOP_SALES_FIN)}`;
 }
@@ -2720,14 +2761,14 @@ app.event("app_mention", async ({event,say,client}) => {
       await client.chat.postMessage({
         channel: event.channel,
         text:
-          `🛡️ *Mode Astérix activé* — auto-expire le *${finStr}*.\n` +
+          `🛡️ *Mode spécial activé* — auto-expire le *${finStr}*.\n` +
           `• L'annonce d'ouverture partira sur <#${PRINCIPAL_CHANNEL}> au prochain compteur (3 deals).\n` +
-          `• Tous les 3 compteurs : 1 milestone Astérix injectée — pool court ou pool fort, tirage 50/50, jamais les deux.\n` +
+          `• Tous les 3 compteurs : 1 milestone bonus injectée — pool court ou pool fort, tirage 50/50, jamais les deux.\n` +
           `• Anti-répétition : pas 2 fois la même milestone tant que le pool n'est pas épuisé.\n` +
           `• Force le retour avant l'expiration : \`@Money Lisa mode normal\`.`,
       });
-    } catch(e) { console.log("postMessage mode asterix :", e.message); }
-    console.log(`🛡️ Mode Astérix activé jusqu'à ${finStr}`);
+    } catch(e) { console.log("postMessage mode special :", e.message); }
+    console.log(`🛡️ Mode spécial activé jusqu'à ${finStr}`);
     return;
   }
 
@@ -2743,7 +2784,7 @@ app.event("app_mention", async ({event,say,client}) => {
       await client.chat.postMessage({
         channel: event.channel,
         text: etait === "asterix"
-          ? `🔄 *Mode Astérix désactivé* — retour au comportement classique (milestones tous les 5 compteurs).`
+          ? `🔄 *Mode spécial désactivé* — retour au comportement classique (milestones tous les 5 compteurs).`
           : `ℹ️ Aucun mode spécial actif — déjà en mode classique.`,
       });
     } catch(e) { console.log("postMessage mode normal :", e.message); }
@@ -2761,13 +2802,13 @@ app.event("app_mention", async ({event,say,client}) => {
           })
         : "(pas d'auto-expire)";
       txt =
-        `🛡️ *Mode actif : Astérix*\n` +
+        `🛡️ *Mode actif : spécial*\n` +
         `• Auto-expire : *${finStr}*\n` +
         `• Compteurs depuis activation : *${state.asterixCompteurs}*\n` +
         `• Annonce d'ouverture : ${state.asterixAnnonceEnAttente ? "*en attente du prochain compteur*" : "*déjà postée*"}\n` +
         `• Pour forcer le retour au classique : \`@Money Lisa mode normal\``;
     } else {
-      txt = `ℹ️ *Mode actif : classique*\n• Activer Astérix : \`@Money Lisa mode asterix\``;
+      txt = `ℹ️ *Mode actif : classique*\n• Activer le mode spécial : \`@Money Lisa mode special\``;
     }
     try {
       await client.chat.postMessage({ channel: event.channel, text: txt });

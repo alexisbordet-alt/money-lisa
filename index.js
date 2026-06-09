@@ -536,7 +536,7 @@ const MESSAGES_MODIF = [
 const MESSAGES_SUPPRESSION = [
   {header:"OUPS PETITE ERREUR PAR ICI 😅",texte:"Un message avec du MRR vient d'être supprimé. J'ai remis le compteur à jour automatiquement."},
   {header:"RETOUR EN ARRIÈRE — COMPTEUR AJUSTÉ 🔄",texte:"Message supprimé détecté. Pas de panique, le compteur est recalculé proprement."},
-  {header:"AH MINCE — ON REPART EN ARRIÈRE 😅🔄",texte:"Un deal a été retiré du compteur suite à la suppression. C'est carré."},
+  {header:"AH MINCE — ON REPART EN ARRIÈRE 😅🔄",texte:"Un deal a été retiré du compteur suite à la suppression. L'erreur a été corrigée."},
   {header:"OUPS — COMPTEUR MIS À JOUR 😅✅",texte:"Suppression détectée. Le montant a été recrédité automatiquement."},
 ];
 
@@ -1708,8 +1708,17 @@ async function envoyerStatut(channel, client) {
 // ============================================================
 // MESSAGE MODIFICATION / SUPPRESSION
 // ============================================================
-function construireMessageModif(restant, objectifDepart, msgTexte, isSuppression=false) {
-  const calcul = `*${objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  →  *${Math.max(0,restant).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  _(${state.modeLabel})_`;
+function construireMessageModif(restant, objectifDepart, msgTexte, isSuppression=false, ancienRestant=null, montant=null) {
+  const fmt = n => n.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
+  let calcul;
+  if (isSuppression && ancienRestant !== null && montant !== null) {
+    // Suppression : montre le calcul du remboursement
+    // Ex : "23 925€ + 105€ = 24 030€ / 25 000€ (la semaine)"
+    calcul = `*${fmt(ancienRestant)}€*  +  *${fmt(montant)}€*  =  *${fmt(Math.max(0,restant))}€*  /  ${fmt(objectifDepart)}€  _(${state.modeLabel})_`;
+  } else {
+    // Édition ou cas sans détail : ancien format "ancien → nouveau"
+    calcul = `*${fmt(objectifDepart)}€*  →  *${fmt(Math.max(0,restant))}€*  _(${state.modeLabel})_`;
+  }
   return [
     {type:"section",text:{type:"mrkdwn",text:`${isSuppression?"🗑️":"✏️"}  ${msgTexte}`}},
     {type:"divider"},
@@ -2316,6 +2325,9 @@ async function traiterSuppression({ts,channel}, client) {
   if (state.tsDejaComptes.includes(ts)) {
     const montant=state.montantsComptes[ts]||0;
     if (!montant) return;
+    // Mémorise l'ancien restant AVANT le remboursement pour pouvoir
+    // afficher le calcul détaillé `ancien + montant = nouveau`.
+    const ancienRestant = state.objectif;
     state.objectif+=montant;
     delete state.montantsComptes[ts];
     state.tsDejaComptes=state.tsDejaComptes.filter(t=>t!==ts);
@@ -2323,7 +2335,7 @@ async function traiterSuppression({ts,channel}, client) {
       state.salesStats[uid].closes=state.salesStats[uid].closes.filter(c=>c.ts!==ts);
     sauvegarderState(state);
     const msg=pick(MESSAGES_SUPPRESSION);
-    const blocks=construireMessageModif(state.objectif,state.objectifDepart,`${msg.header} — ${msg.texte}`,true);
+    const blocks=construireMessageModif(state.objectif,state.objectifDepart,`${msg.header} — ${msg.texte}`,true,ancienRestant,montant);
     await client.chat.postMessage({channel,text:`🗑️ Compteur ajusté`,blocks});
   }
 }

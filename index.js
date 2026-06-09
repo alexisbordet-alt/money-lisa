@@ -2086,6 +2086,8 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
       const ancien = state.montantsComptes[ts] || 0;
       const diff   = mrr - ancien;
       if (diff !== 0) {
+        // Mémorise l'ancien restant AVANT mutation pour affichage détaillé.
+        const ancienRestant = state.objectif;
         state.objectif -= diff;
         state.montantsComptes[ts] = mrr;
         for (const uid of Object.keys(state.salesStats)) {
@@ -2096,7 +2098,12 @@ async function traiterMessage({ts,texte,userId,channel,estEdition}, client) {
         // Édition : on n'affiche QUE le palier franchi s'il y en a un.
         // Pas de pression — l'édition n'est pas un flush de compteur.
         const milestone = verifierMilestone(state.objectifDepart, state.objectif);
-        const calcul = `*${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  →  *${Math.max(0,state.objectif).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*  /  ${state.objectifDepart.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€  _(${state.modeLabel})_`;
+        // Calcul détaillé : "ancien ± |diff| = nouveau / total (période)"
+        // - diff > 0 (nouveau MRR > ancien) → state.objectif DIMINUE → signe '−'
+        // - diff < 0 (nouveau MRR < ancien) → state.objectif AUGMENTE → signe '+'
+        const fmt = n => n.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2});
+        const signe = diff > 0 ? '−' : '+';
+        const calcul = `*${fmt(ancienRestant)}€*  ${signe}  *${fmt(Math.abs(diff))}€*  =  *${fmt(Math.max(0,state.objectif))}€*  /  ${fmt(state.objectifDepart)}€  _(${state.modeLabel})_`;
         const blocks = [];
         blocks.push({type:"section",text:{type:"mrkdwn",text:`🚨  *COMPTEUR MONEY LISA*  🚨`}});
         if (milestone) {

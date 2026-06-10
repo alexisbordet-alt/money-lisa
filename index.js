@@ -3095,6 +3095,18 @@ const DRUM_WINDOW_MS    = 5  * 60 * 1000; // 5 min pour cumuler 2 drums
 const DRUM_COOLDOWN_MS  = 10 * 60 * 1000; // 10 min de pause après un rally
 const DRUM_TRIGGER      = 2;
 const RE_DRUM = /:drum_with_drumsticks:|:drum:|🥁/i;
+const DRUM_RALLY_MESSAGES = [
+  `🥁 Je veux un maximum de Tambour dans le chaaaaaaat 🥁`,
+  `🥁 LES TAMBOURS LES TAMBOURS LES TAMBOURS 🥁`,
+  `🥁 Allez la team, on enchaîne les tambours ! 🥁`,
+  `🥁 Roulez les tambours, c'est le moment ! 🥁`,
+  `🥁 Plus fort, je veux les entendre ces tambours ! 🥁🥁🥁`,
+  `🥁 J'entends rien là, plus de tambours svp 🥁`,
+  `🥁 Ça tambourine pas assez fort là... ALLEZ ! 🥁`,
+  `🥁 Pluie de tambours demandée immédiatement 🥁`,
+  `🥁 Tambours en chaîne — montez le son ! 🥁`,
+  `🥁 La cadence des tambours, j'en veux PLUS 🥁`,
+];
 
 async function checkDrumRally(channel, text, client) {
   if (!text || !RE_DRUM.test(text)) return;
@@ -3112,12 +3124,10 @@ async function checkDrumRally(channel, text, client) {
   const tss = (_drumTracker.get(channel) || []).filter(t => now - t < DRUM_WINDOW_MS);
   tss.push(now);
   if (tss.length >= DRUM_TRIGGER) {
+    const message = pick(DRUM_RALLY_MESSAGES);
     try {
-      await client.chat.postMessage({
-        channel,
-        text: `🥁 Je veux un maximum de Tambour dans le chaaaaaaat 🥁`,
-      });
-      console.log(`🥁 Drum rally déclenché dans ${channel} → cooldown 10 min`);
+      await client.chat.postMessage({ channel, text: message });
+      console.log(`🥁 Drum rally déclenché dans ${channel} → "${message}" → cooldown 10 min`);
     } catch(e) { console.log("drum rally raté :", e.message); }
     _drumTracker.set(channel, []);     // reset compteur
     _drumCooldown.set(channel, now);   // active cooldown

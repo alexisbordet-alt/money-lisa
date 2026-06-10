@@ -3080,22 +3080,35 @@ app.event("app_mention", async ({event,say,client}) => {
 });
 
 // ============================================================
-// DRUM RALLY — détecte 2 messages avec 🥁 dans une fenêtre de 10 min
+// DRUM RALLY — 2 drums dans 5 min → rally, puis cooldown 10 min
 // ------------------------------------------------------------
-// Au 2e message contenant l'emoji :drum_with_drumsticks: (ou 🥁, ou :drum:)
-// dans les 10 dernières minutes sur un channel → le bot poste un message
-// "🥁 Je veux un maximum de Tambour dans le chaaaaaaat 🥁".
-// Le compteur est reset après chaque rally.
-// Les messages du bot lui-même ne comptent pas (filtrés par message.bot_id).
+// - Fenêtre de cumul : 5 minutes (les 2 drums doivent être dans 5 min)
+// - Au 2e drum dans la fenêtre → bot poste le message "rally"
+// - Cooldown de 10 minutes après chaque rally : les drums postés pendant
+//   le cooldown sont IGNORÉS (pas comptés dans le prochain compteur)
+// - Reset du compteur après le rally
+// - Messages du bot lui-même ne comptent pas (filtrés par bot_id)
 // ============================================================
-const _drumTracker = new Map(); // channel → array de timestamps (ms)
-const DRUM_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const DRUM_TRIGGER = 2;
+const _drumTracker  = new Map(); // channel → array de timestamps (ms)
+const _drumCooldown = new Map(); // channel → timestamp du dernier rally (ms)
+const DRUM_WINDOW_MS    = 5  * 60 * 1000; // 5 min pour cumuler 2 drums
+const DRUM_COOLDOWN_MS  = 10 * 60 * 1000; // 10 min de pause après un rally
+const DRUM_TRIGGER      = 2;
 const RE_DRUM = /:drum_with_drumsticks:|:drum:|🥁/i;
 
 async function checkDrumRally(channel, text, client) {
   if (!text || !RE_DRUM.test(text)) return;
   const now = Date.now();
+
+  // Cooldown : on ignore les drums pendant 10 min après un rally
+  const lastRally = _drumCooldown.get(channel) || 0;
+  if (now - lastRally < DRUM_COOLDOWN_MS) {
+    const restantSec = Math.ceil((DRUM_COOLDOWN_MS - (now - lastRally)) / 1000);
+    console.log(`🥁 Drum ignoré dans ${channel} (cooldown actif, ${restantSec}s restantes)`);
+    return;
+  }
+
+  // Cumul des drums dans la fenêtre glissante de 5 min
   const tss = (_drumTracker.get(channel) || []).filter(t => now - t < DRUM_WINDOW_MS);
   tss.push(now);
   if (tss.length >= DRUM_TRIGGER) {
@@ -3104,9 +3117,10 @@ async function checkDrumRally(channel, text, client) {
         channel,
         text: `🥁 Je veux un maximum de Tambour dans le chaaaaaaat 🥁`,
       });
-      console.log(`🥁 Drum rally déclenché dans ${channel} (${tss.length} drums en ${DRUM_WINDOW_MS/60000} min)`);
+      console.log(`🥁 Drum rally déclenché dans ${channel} → cooldown 10 min`);
     } catch(e) { console.log("drum rally raté :", e.message); }
-    _drumTracker.set(channel, []); // reset
+    _drumTracker.set(channel, []);     // reset compteur
+    _drumCooldown.set(channel, now);   // active cooldown
   } else {
     _drumTracker.set(channel, tss);
   }

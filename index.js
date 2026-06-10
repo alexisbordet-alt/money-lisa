@@ -3080,6 +3080,39 @@ app.event("app_mention", async ({event,say,client}) => {
 });
 
 // ============================================================
+// DRUM RALLY — détecte 2 messages avec 🥁 dans une fenêtre de 10 min
+// ------------------------------------------------------------
+// Au 2e message contenant l'emoji :drum_with_drumsticks: (ou 🥁, ou :drum:)
+// dans les 10 dernières minutes sur un channel → le bot poste un message
+// "🥁 Je veux un maximum de Tambour dans le chaaaaaaat 🥁".
+// Le compteur est reset après chaque rally.
+// Les messages du bot lui-même ne comptent pas (filtrés par message.bot_id).
+// ============================================================
+const _drumTracker = new Map(); // channel → array de timestamps (ms)
+const DRUM_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const DRUM_TRIGGER = 2;
+const RE_DRUM = /:drum_with_drumsticks:|:drum:|🥁/i;
+
+async function checkDrumRally(channel, text, client) {
+  if (!text || !RE_DRUM.test(text)) return;
+  const now = Date.now();
+  const tss = (_drumTracker.get(channel) || []).filter(t => now - t < DRUM_WINDOW_MS);
+  tss.push(now);
+  if (tss.length >= DRUM_TRIGGER) {
+    try {
+      await client.chat.postMessage({
+        channel,
+        text: `🥁 Je veux un maximum de Tambour dans le chaaaaaaat 🥁`,
+      });
+      console.log(`🥁 Drum rally déclenché dans ${channel} (${tss.length} drums en ${DRUM_WINDOW_MS/60000} min)`);
+    } catch(e) { console.log("drum rally raté :", e.message); }
+    _drumTracker.set(channel, []); // reset
+  } else {
+    _drumTracker.set(channel, tss);
+  }
+}
+
+// ============================================================
 // NOUVEAUX MESSAGES
 // ============================================================
 app.message(async ({message,client}) => {
@@ -3089,6 +3122,11 @@ app.message(async ({message,client}) => {
   // Ça couvre tous les cas d'attachement (file_share, images mobiles, etc.) sans whitelister explicitement chaque subtype.
   if (!message.user) return;
   if (message.thread_ts&&message.thread_ts!==message.ts) return;
+
+  // Drum rally : check AVANT traiterMessage pour qu'un message avec MRR
+  // ET un drum déclenche AUSSI la détection drum (cumulable).
+  await checkDrumRally(message.channel, message.text || "", client);
+
   await traiterMessage({ts:message.ts,texte:message.text||"",userId:message.user,channel:message.channel,estEdition:false},client);
 });
 

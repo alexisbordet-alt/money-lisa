@@ -1784,14 +1784,16 @@ function calculerTopSales(periode, mode) {
     .slice(0, 3);
 }
 const MESSAGES_TOP_SALES_FIN = [
-  "Continuez comme ça la team 😤🔥","Voilà ce qu'on veut voir. Bravo les boss 💪",
-  "C'est masterclass. On est sur du très lourd 👑","Le classement c'est bien, le 100% c'est mieux. On continue 🚀",
-  "Ce rythme, on le garde. On pousse encore 😤","Vous envoyez de la frappe les gars. C'est exactement ça 🔥",
-  "C'est carré. Maintenant on continue sur cette lancée 💥","Des GOAT. Voilà ce que vous êtes 🐐🏆",
-  "C'est zinzin ce classement. Continuez à envoyer 🙌","Top 3 de feu. Le reste du classement va devoir se réveiller 😅🔥",
-  "Ça c'est un classement de boss finals 👑","C'est la maxence totale. Je vous aime les gars 🏆",
-  "Direction l'asile tellement vous êtes bons 😅💥","Quelle team, on ne lâche rien 🔥😤",
-  "J'ai le seum pour l'objectif tellement vous lui faites du mal 😤🔥",
+  "Félicitations au top 3 👏 — beau boulot la team !",
+  "Bravo au podium 🏆 et pour les autres : allez, on rattrape 💪",
+  "Joli classement les boss 👑 — on continue à pousser fort",
+  "Top 3 mérité ! Les autres : à vous de monter sur le podium 🚀",
+  "Beau classement les gars — gardez cette cadence 🔥",
+  "Bravo au podium ! Qui le bouscule cette aprèm ? 🥊",
+  "Joli boulot top 3 — la suite de la team s'accroche pour rattraper 😤",
+  "Félicitations au podium 🏆 — le classement reste ouvert",
+  "Beau top 3 ! Allez la team, on en veut plus 💪",
+  "Bravo aux meilleurs et pour les autres : objectif podium ! 🎯",
 ];
 function formaterTopSales(top, periode, mode) {
   const periodeLabel = {

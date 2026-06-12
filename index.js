@@ -710,6 +710,15 @@ const POOL_FORCE_GROS_RETARD = [
     texte:`${pct}% pour ~${att}% théoriques. Closes en chaîne, on rattrape ensemble. ${pickCEO()}`}),
   (pct, att) => ({emoji:"😤", header:"LA CADENCE NE SUIT PAS — ON FORCE",
     texte:`${pct}% au compteur, ~${att}% attendus. ${att-pct} points sous le rythme. On serre les rangs et on pousse maintenant.`}),
+  // ── Encouragement (alternance avec les phrases pression ci-dessus) ──
+  (pct, att) => ({emoji:"💚", header:"ON Y CROIT — LA TEAM PEUT LE FAIRE",
+    texte:`${pct}% au compteur, ~${att}% théoriques. Léger retard mais rien d'insurmontable. Vous êtes des cracks, on rattrape ensemble 💪`}),
+  (pct, att) => ({emoji:"🙌", header:"BRAVO POUR LE CHEMIN PARCOURU",
+    texte:`${pct}% de fait, c'est déjà du boulot. Le rythme idéal est à ~${att}% mais avec cette équipe ça va se rattraper. On lâche rien 🔥`}),
+  (pct, att) => ({emoji:"🚀", header:"LA TEAM EST LANCÉE — ON RATTRAPE",
+    texte:`${pct}% pour ~${att}% attendus. Pas de stress, vous avez ce qu'il faut pour combler l'écart. Allez les boss !`}),
+  (pct, att) => ({emoji:"💪", header:"AUCUNE RAISON DE DOUTER",
+    texte:`${pct}% bouclés, on visait ~${att}%. C'est rattrapable et vous le savez. Une équipe comme la vôtre peut tout renverser 🙌`}),
 ];
 
 const POOL_FORCE_GROSSE_AVANCE = [
@@ -729,6 +738,13 @@ const POOL_FORCE_GROSSE_AVANCE = [
     texte:`${pct}% pour ~${att}% attendus. ${pct-att} points au-dessus du rythme. La fin de période sera sereine si on garde ça.`}),
   (pct, att) => ({emoji:"💪", header:"LA TEAM EST EN MODE CRACK",
     texte:`${pct}% au compteur quand on devait être à ~${att}%. ${pickCEO()} On reste sur cette lancée 🐐`}),
+  // ── Félicitations supplémentaires ──
+  (pct, att) => ({emoji:"🎉", header:"BRAVO LA TEAM — VOUS ÉCRASEZ",
+    texte:`${pct}% alors qu'on attendait ~${att}% — quelle équipe ! Félicitations, c'est ça la vraie dynamique 🔥`}),
+  (pct, att) => ({emoji:"👏", header:"BEAU BOULOT — VOUS ÊTES EN AVANCE",
+    texte:`${pct}% pour ~${att}% attendus — bravo les boss. Vous êtes solides, on continue 💪`}),
+  (pct, att) => ({emoji:"💚", header:"VOUS GÉREZ LA TEAM",
+    texte:`${pct}% au compteur, ~${att}% théoriques — vous êtes au-dessus du rythme et c'est mérité. Félicitations 🚀`}),
 ];
 
 // ============================================================
@@ -1418,28 +1434,47 @@ function verifierMilestone(objectifDepart, objectif, dryRun = false) {
         const ecart = pct - attendu;
 
         // GROS RETARD (≥ 15 pts sous le rythme)
+        // Pool mixte : 3 messages "pression" + 4 messages "encouragement"
+        // pour alterner entre coup de pression et soutien.
         if (ecart <= -15) {
           return tag(pick([
+            // ── Pression ──
             {emoji:"⚠️", header:`${threshold}% — MAIS ON EST À LA TRAÎNE`,
              texte:`On franchit le palier des ${threshold}%, ok. Sauf qu'à ce stade on devrait être à ~${attendu}%. L'objectif ne se rattrape pas tout seul, il faut sérieusement pousser maintenant 💪`},
             {emoji:"😬", header:`${threshold}% — RYTHME TROP LENT`,
              texte:`${threshold}% au compteur mais le temps écoulé nous met à ~${attendu}% attendus. On est en retard, faut accélérer la cadence sur les deals qui restent.`},
             {emoji:"⏰", header:`${threshold}% — IL FAUT METTRE LE TURBO`,
              texte:`Palier ${threshold}% franchi mais on est sous le rythme (attendu : ~${attendu}%). Moins de temps devant, autant de deals à faire. Chaque close est décisif maintenant 🔥`},
+            // ── Encouragement ──
+            {emoji:"💪", header:`${threshold}% — ALLEZ LA TEAM, ON RATTRAPE`,
+             texte:`Palier ${threshold}% franchi, bravo. Le rythme attendu c'est ~${attendu}% mais avec cette équipe y'a moyen de rattraper. On y croit 🔥`},
+            {emoji:"🔥", header:`${threshold}% — BEAU PALIER, ON CREUSE MAINTENANT`,
+             texte:`${threshold}% au compteur, sous le ~${attendu}% attendu mais c'est pas grave. Vous êtes des cracks, le rattrapage est dans vos cordes. Allez les boss !`},
+            {emoji:"🚀", header:`${threshold}% — ON Y EST PRESQUE`,
+             texte:`Palier ${threshold}% atteint — léger retard sur le rythme idéal (~${attendu}%) mais aucun stress. Vous avez prouvé que vous pouvez aller chercher l'objectif, on y va ensemble 💪`},
+            {emoji:"💚", header:`${threshold}% — AUCUNE RAISON DE DOUTER`,
+             texte:`${pct}% bouclés, on visait ~${attendu}%. C'est rattrapable et vous le savez. Une équipe comme la vôtre peut tout renverser, on continue ensemble 🙌`},
           ]));
         }
 
         // LÉGER RETARD (entre -5 et -15 pts)
+        // Pool mixte : 2 messages "pression light" + 2 messages "encouragement"
         if (ecart < -5) {
           return tag(pick([
+            // ── Pression light ──
             {emoji:"📊", header:`${threshold}% — LÉGER RETARD SUR LE RYTHME`,
              texte:`${threshold}% bouclés, mais normalement on serait à ~${attendu}% à ce stade. Pas dramatique, faut juste pas relâcher sur les prochains deals.`},
             {emoji:"💪", header:`${threshold}% — ON EST UN CRAN EN DESSOUS`,
              texte:`Palier atteint, mais on est légèrement sous le rythme idéal (attendu : ~${attendu}%). On serre les rangs et on rattrape.`},
+            // ── Encouragement ──
+            {emoji:"💚", header:`${threshold}% — PETIT RETARD, RIEN DE DRAMATIQUE`,
+             texte:`Bravo pour ce ${threshold}% — on est juste un cran sous le rythme (~${attendu}% attendu) mais avec cette dynamique ça va se rattraper. Continuez les boss 💪`},
+            {emoji:"🔥", header:`${threshold}% — BEAU PALIER, ON GARDE LA CADENCE`,
+             texte:`Joli ${threshold}% les gars. Léger retard sur l'idéal mais c'est rien, vous tenez le cap parfaitement. Allez on continue 🚀`},
           ]));
         }
 
-        // DANS LES CLOUS (±5 pts)
+        // DANS LES CLOUS (±5 pts) — déjà positives, on ajoute 2 félicitations
         if (ecart >= -5 && ecart <= 5) {
           return tag(pick([
             {emoji:"🎯", header:`${threshold}% — PILE DANS LE RYTHME`,
@@ -1448,25 +1483,40 @@ function verifierMilestone(objectifDepart, objectif, dryRun = false) {
              texte:`Palier ${threshold}% au bon moment (attendu : ~${attendu}%). Ni avance ni retard, juste du solide. On continue au même rythme 💪`},
             {emoji:"⚡", header:`${threshold}% — TRAJECTOIRE NICKEL`,
              texte:`${threshold}% au compteur, ~${attendu}% attendu : on est sur la trajectoire. Reste à tenir cette cadence sur les prochains deals 🎯`},
+            // ── Félicitations ──
+            {emoji:"👏", header:`${threshold}% — BRAVO, VOUS GÉREZ`,
+             texte:`Pile dans les clous au palier ${threshold}% — c'est ça la régularité. Bravo la team, continuez comme ça 💪`},
+            {emoji:"✨", header:`${threshold}% — BEAU TIMING LES BOSS`,
+             texte:`${threshold}% au bon moment (~${attendu}% attendu) — c'est tout ce qu'on demande. Bravo les boss, on enchaîne 🚀`},
           ]));
         }
 
-        // LÉGÈRE AVANCE (entre +5 et +10 pts)
+        // LÉGÈRE AVANCE (entre +5 et +10 pts) — 2 existantes + 2 félicitations
         if (ecart < 10) {
           return tag(pick([
             {emoji:"🔥", header:`${threshold}% — UN PEU EN AVANCE`,
              texte:`${threshold}% franchis alors qu'on était censés être à ~${attendu}% seulement. Petite avance sympa, on capitalise dessus pour finir tranquille 💪`},
             {emoji:"💪", header:`${threshold}% — BELLE AVANCE SUR LE RYTHME`,
              texte:`Palier atteint avec quelques points d'avance (~${attendu}% attendu, ${pct}% réel). Si on garde cette cadence, la fin est confortable.`},
+            // ── Félicitations ──
+            {emoji:"👏", header:`${threshold}% — BRAVO, VOUS AVEZ DE LA MARGE`,
+             texte:`${threshold}% franchi avec quelques points d'avance (~${attendu}% attendu) — beau boulot la team. La fin de période s'annonce sereine 💪`},
+            {emoji:"🎉", header:`${threshold}% — JOLIE AVANCE, FÉLICITATIONS`,
+             texte:`${threshold}% alors qu'on était censés être à ~${attendu}% — bravo les boss, vous êtes en avance sur la prévision 🔥`},
           ]));
         }
 
-        // GROSSE AVANCE (≥ 10 pts au-dessus)
+        // GROSSE AVANCE (≥ 10 pts au-dessus) — 2 existantes + 2 félicitations
         return tag(pick([
           {emoji:"🚀", header:`${threshold}% — BIEN EN AVANCE SUR LE RYTHME`,
            texte:`${threshold}% alors qu'on n'était censés être qu'à ~${attendu}% à ce stade. Quelle cadence ! L'objectif va tomber avec de la marge si on reste sur cette lancée 🔥`},
           {emoji:"🐐", header:`${threshold}% — ON EST EN MODE GOAT`,
            texte:`À ce stade on devait être vers ~${attendu}%, on est déjà à ${pct}%. C'est masterclass. On garde cette énergie et l'objectif tombe large 💥`},
+          // ── Félicitations ──
+          {emoji:"🎉", header:`${threshold}% — INCROYABLE, BRAVO LA TEAM`,
+           texte:`${threshold}% atteints quand le rythme attendait ~${attendu}% — c'est juste exceptionnel. Bravo les boss, vous écrasez tout 👏`},
+          {emoji:"🏆", header:`${threshold}% — MASTERCLASS COLLECTIF`,
+           texte:`On est à ${threshold}% alors qu'on devrait être à ~${attendu}% — quelle équipe ! Félicitations, l'objectif va tomber large 💪`},
         ]));
       }
 

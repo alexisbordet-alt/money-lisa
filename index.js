@@ -694,31 +694,30 @@ const MESSAGES_DEPASSEMENT = [
 // et renvoient {emoji, header, texte} avec les chiffres injectés.
 // ============================================================
 const POOL_FORCE_GROS_RETARD = [
-  (pct, att) => ({emoji:"⚠️", header:"ON EST À LA TRAÎNE — IL FAUT POUSSER",
-    texte:`${pct}% au compteur mais on devrait être à ~${att}% à ce stade. Le rythme actuel ne suffit pas. Closes en série, on a pas le luxe d'attendre 💪`}),
-  (pct, att) => ({emoji:"😬", header:"LE RYTHME EST INSUFFISANT",
-    texte:`${pct}% pour ~${att}% attendus à ce stade. On accuse un retard sérieux. Chaque close maintenant est crucial 🔥`}),
-  (pct, att) => ({emoji:"⏰", header:"L'OBJECTIF S'ÉLOIGNE — ON ACCÉLÈRE",
-    texte:`${pct}% au compteur, ~${att}% théoriques. On perd du terrain. Tout le monde dessus, closes maintenant 😤`}),
-  (pct, att) => ({emoji:"🚨", header:"IL FAUT INVERSER LA TENDANCE — MAINTENANT",
-    texte:`${pct}% alors qu'à ce stade on devrait être à ~${att}%. ${pickPhilippePression()}`}),
-  (pct, att) => ({emoji:"📉", header:"ON DÉCROCHE — ON SE REPREND",
-    texte:`${pct}% pour ~${att}% attendus. Le retard est sérieux. Ce que vous closez dans l'heure peut tout changer.`}),
-  (pct, att) => ({emoji:"💪", header:"LA REMONTADA SE JOUE MAINTENANT",
-    texte:`${pct}% au compteur, on devrait être à ~${att}%. C'est rattrapable mais ça nécessite de l'intensité maintenant. Allez la team 🔥`}),
-  (pct, att) => ({emoji:"⚡", header:"ON DOIT METTRE LE TURBO POUR REVENIR",
-    texte:`${pct}% pour ~${att}% théoriques. Closes en chaîne, on rattrape ensemble. ${pickCEO()}`}),
-  (pct, att) => ({emoji:"😤", header:"LA CADENCE NE SUIT PAS — ON FORCE",
-    texte:`${pct}% au compteur, ~${att}% attendus. ${att-pct} points sous le rythme. On serre les rangs et on pousse maintenant.`}),
-  // ── Encouragement (alternance avec les phrases pression ci-dessus) ──
-  (pct, att) => ({emoji:"💚", header:"ON Y CROIT — LA TEAM PEUT LE FAIRE",
-    texte:`${pct}% au compteur, ~${att}% théoriques. Léger retard mais rien d'insurmontable. Vous êtes des cracks, on rattrape ensemble 💪`}),
-  (pct, att) => ({emoji:"🙌", header:"BRAVO POUR LE CHEMIN PARCOURU",
-    texte:`${pct}% de fait, c'est déjà du boulot. Le rythme idéal est à ~${att}% mais avec cette équipe ça va se rattraper. On lâche rien 🔥`}),
-  (pct, att) => ({emoji:"🚀", header:"LA TEAM EST LANCÉE — ON RATTRAPE",
-    texte:`${pct}% pour ~${att}% attendus. Pas de stress, vous avez ce qu'il faut pour combler l'écart. Allez les boss !`}),
-  (pct, att) => ({emoji:"💪", header:"AUCUNE RAISON DE DOUTER",
+  // ── Encouragement (8) — majoritaires ──
+  (pct, att) => ({emoji:"💪", header:"ALLEZ LA TEAM — ON CONTINUE",
+    texte:`${pct}% au compteur, ~${att}% attendus. On va le faire, vous êtes des cracks 🔥`}),
+  (pct, att) => ({emoji:"🔥", header:"BRAVO POUR LE CHEMIN",
+    texte:`${pct}% de fait, c'est déjà du boulot. Le rythme idéal est à ~${att}% mais on garde la même équipe lancée 💪`}),
+  (pct, att) => ({emoji:"🚀", header:"LA TEAM EST LANCÉE",
+    texte:`${pct}% au compteur, ~${att}% attendus. Pas de stress, vous avez ce qu'il faut. Allez les boss !`}),
+  (pct, att) => ({emoji:"💚", header:"AUCUNE RAISON DE DOUTER",
     texte:`${pct}% bouclés, on visait ~${att}%. C'est rattrapable et vous le savez. Une équipe comme la vôtre peut tout renverser 🙌`}),
+  (pct, att) => ({emoji:"🙌", header:"BEAU CHEMIN, ON ACCÉLÈRE",
+    texte:`${pct}% au compteur. Le rythme attendu c'est ~${att}% mais on s'en moque, l'objectif final c'est ce qui compte 💪`}),
+  (pct, att) => ({emoji:"✨", header:"VOUS ÊTES CAPABLES",
+    texte:`${pct}% de fait, ~${att}% théoriques. Vous l'avez en vous, on continue 🔥`}),
+  (pct, att) => ({emoji:"💎", header:"BELLE PROGRESSION",
+    texte:`${pct}% au compteur. La team avance, c'est ce qui compte. Allez les boss !`}),
+  (pct, att) => ({emoji:"⭐", header:"ON A TOUT POUR Y ARRIVER",
+    texte:`${pct}% bouclés, ~${att}% attendus. Vous avez le talent, on en veut plus 💪`}),
+  // ── Light push (3) — poussent au meilleur sans plomber ──
+  (pct, att) => ({emoji:"⏰", header:"ON A LA CARTOUCHE POUR FINIR FORT",
+    texte:`${pct}% au compteur, ~${att}% attendus. Petite marge à rattraper mais avec cette team chaque close va faire la différence 💪`}),
+  (pct, att) => ({emoji:"📈", header:"REMONTÉE EN VUE",
+    texte:`${pct}% au compteur, rythme idéal ~${att}%. C'est l'occasion de montrer ce que vous valez 🚀`}),
+  (pct, att) => ({emoji:"💪", header:"LA REMONTADA EST POSSIBLE",
+    texte:`${pct}% pour ~${att}% attendus. C'est jouable et vous le savez. On serre les rangs et on y va 🔥`}),
 ];
 
 const POOL_FORCE_GROSSE_AVANCE = [
@@ -1434,43 +1433,47 @@ function verifierMilestone(objectifDepart, objectif, dryRun = false) {
         const ecart = pct - attendu;
 
         // GROS RETARD (≥ 15 pts sous le rythme)
-        // Pool mixte : 3 messages "pression" + 4 messages "encouragement"
-        // pour alterner entre coup de pression et soutien.
+        // Pool mixte refondu : 6 phrases TRÈS encourageantes/féliciter
+        // + 2 qui poussent gentiment au meilleur (sans plomber).
         if (ecart <= -15) {
           return tag(pick([
-            // ── Pression ──
-            {emoji:"⚠️", header:`${threshold}% — MAIS ON EST À LA TRAÎNE`,
-             texte:`On franchit le palier des ${threshold}%, ok. Sauf qu'à ce stade on devrait être à ~${attendu}%. L'objectif ne se rattrape pas tout seul, il faut sérieusement pousser maintenant 💪`},
-            {emoji:"😬", header:`${threshold}% — RYTHME TROP LENT`,
-             texte:`${threshold}% au compteur mais le temps écoulé nous met à ~${attendu}% attendus. On est en retard, faut accélérer la cadence sur les deals qui restent.`},
-            {emoji:"⏰", header:`${threshold}% — IL FAUT METTRE LE TURBO`,
-             texte:`Palier ${threshold}% franchi mais on est sous le rythme (attendu : ~${attendu}%). Moins de temps devant, autant de deals à faire. Chaque close est décisif maintenant 🔥`},
-            // ── Encouragement ──
-            {emoji:"💪", header:`${threshold}% — ALLEZ LA TEAM, ON RATTRAPE`,
-             texte:`Palier ${threshold}% franchi, bravo. Le rythme attendu c'est ~${attendu}% mais avec cette équipe y'a moyen de rattraper. On y croit 🔥`},
-            {emoji:"🔥", header:`${threshold}% — BEAU PALIER, ON CREUSE MAINTENANT`,
-             texte:`${threshold}% au compteur, sous le ~${attendu}% attendu mais c'est pas grave. Vous êtes des cracks, le rattrapage est dans vos cordes. Allez les boss !`},
-            {emoji:"🚀", header:`${threshold}% — ON Y EST PRESQUE`,
-             texte:`Palier ${threshold}% atteint — léger retard sur le rythme idéal (~${attendu}%) mais aucun stress. Vous avez prouvé que vous pouvez aller chercher l'objectif, on y va ensemble 💪`},
-            {emoji:"💚", header:`${threshold}% — AUCUNE RAISON DE DOUTER`,
-             texte:`${pct}% bouclés, on visait ~${attendu}%. C'est rattrapable et vous le savez. Une équipe comme la vôtre peut tout renverser, on continue ensemble 🙌`},
+            // ── Encouragement / félicitations (6) ──
+            {emoji:"💪", header:`${threshold}% — BRAVO, ON CONTINUE ENSEMBLE`,
+             texte:`Palier ${threshold}% franchi, beau boulot la team. Le rythme idéal était à ~${attendu}% mais avec cette équipe on a tout pour aller chercher la suite. Allez les boss 🔥`},
+            {emoji:"🔥", header:`${threshold}% — VOUS GÉREZ, ON ENCHAÎNE`,
+             texte:`${threshold}% au compteur — vous avancez. Le rythme attendu c'est ~${attendu}% mais on s'en moque, l'objectif final c'est ce qui compte. La team est lancée 💪`},
+            {emoji:"🚀", header:`${threshold}% — ALLEZ LA TEAM, ON Y VA`,
+             texte:`Palier ${threshold}% atteint. Petit décalage avec l'idéal (~${attendu}%) mais aucun stress, vous avez prouvé que vous pouvez aller chercher l'objectif. On y va ensemble 💪`},
+            {emoji:"💚", header:`${threshold}% — VOUS POUVEZ TOUT FAIRE`,
+             texte:`${pct}% bouclés, on visait ~${attendu}%. C'est rattrapable et vous en êtes capables. Une équipe comme la vôtre peut tout renverser 🙌`},
+            {emoji:"🙌", header:`${threshold}% — BEAU PALIER LA TEAM`,
+             texte:`${threshold}% franchi — bravo. La team avance, c'est ce qui compte. On continue tranquillement, vous avez le coup de patte 🔥`},
+            {emoji:"✨", header:`${threshold}% — VOUS ÊTES CAPABLES`,
+             texte:`Palier ${threshold}% atteint. Le rythme idéal était à ~${attendu}% mais vous l'avez en vous, on en veut plus 💪`},
+            // ── Poussent gentiment vers le meilleur (2) ──
+            {emoji:"📈", header:`${threshold}% — REMONTÉE EN VUE`,
+             texte:`${threshold}% au compteur, rythme idéal ~${attendu}%. C'est l'occasion de montrer ce que vous valez — chaque close compte maintenant 🚀`},
+            {emoji:"⏰", header:`${threshold}% — ON A LA CARTOUCHE POUR FINIR FORT`,
+             texte:`Palier ${threshold}% franchi, ~${attendu}% attendus à ce stade. Petite marge à rattraper mais avec cette team chaque close va faire la différence 💪`},
           ]));
         }
 
         // LÉGER RETARD (entre -5 et -15 pts)
-        // Pool mixte : 2 messages "pression light" + 2 messages "encouragement"
+        // Refondu : 4 phrases supportives + 1 light push
         if (ecart < -5) {
           return tag(pick([
-            // ── Pression light ──
-            {emoji:"📊", header:`${threshold}% — LÉGER RETARD SUR LE RYTHME`,
-             texte:`${threshold}% bouclés, mais normalement on serait à ~${attendu}% à ce stade. Pas dramatique, faut juste pas relâcher sur les prochains deals.`},
-            {emoji:"💪", header:`${threshold}% — ON EST UN CRAN EN DESSOUS`,
-             texte:`Palier atteint, mais on est légèrement sous le rythme idéal (attendu : ~${attendu}%). On serre les rangs et on rattrape.`},
-            // ── Encouragement ──
-            {emoji:"💚", header:`${threshold}% — PETIT RETARD, RIEN DE DRAMATIQUE`,
-             texte:`Bravo pour ce ${threshold}% — on est juste un cran sous le rythme (~${attendu}% attendu) mais avec cette dynamique ça va se rattraper. Continuez les boss 💪`},
-            {emoji:"🔥", header:`${threshold}% — BEAU PALIER, ON GARDE LA CADENCE`,
-             texte:`Joli ${threshold}% les gars. Léger retard sur l'idéal mais c'est rien, vous tenez le cap parfaitement. Allez on continue 🚀`},
+            // ── Encouragement (4) ──
+            {emoji:"💚", header:`${threshold}% — BEAU PALIER, ON GARDE LE CAP`,
+             texte:`Bravo pour ce ${threshold}% — on est juste un cran sous le rythme idéal (~${attendu}%) mais vous tenez le coup, ça va se rattraper tout seul 💪`},
+            {emoji:"🔥", header:`${threshold}% — VOUS GÉREZ, ON CONTINUE`,
+             texte:`Joli ${threshold}% les gars. Léger retard mais pas dramatique, vous restez sur la trajectoire. Allez 🚀`},
+            {emoji:"💪", header:`${threshold}% — BRAVO, ON SERRE LES RANGS`,
+             texte:`Palier atteint, on est juste un peu sous l'idéal (~${attendu}%). Avec cette dynamique, vous l'avez 🙌`},
+            {emoji:"🙌", header:`${threshold}% — DANS LE CHEMIN, ON POUSSE TRANQUILLE`,
+             texte:`${threshold}% bouclés. Petit décalage avec ~${attendu}% attendus mais l'objectif reste 100% atteignable. Vous l'avez 💪`},
+            // ── Light push (1) ──
+            {emoji:"📊", header:`${threshold}% — ON RESTE FOCUS`,
+             texte:`${threshold}% au compteur, ~${attendu}% à ce stade idéalement. Pas dramatique, on garde le rythme, vous avez tout ce qu'il faut.`},
           ]));
         }
 

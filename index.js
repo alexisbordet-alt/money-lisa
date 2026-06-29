@@ -286,7 +286,16 @@ function similarite(a, b) {
 
 function detecterPeriode(texte) {
   // Nettoyage de base : minuscules, on garde les chiffres et lettres accentuées
-  const t    = texte.toLowerCase().replace(/[^a-zàâäéèêëîïôùûü0-9\s''-]/g," ");
+  const tRaw = texte.toLowerCase().replace(/[^a-zàâäéèêëîïôùûü0-9\s''-]/g," ");
+  // ── Mots-nombres FR → chiffres (deux→2, trois→3, etc.) ────────
+  // Permet à "deux prochains jours" / "trois jours" d'être capté par la regex
+  // numérique plus bas (qui ne matchait que les digits avant).
+  const motsNombres = {
+    deux:"2", trois:"3", quatre:"4", cinq:"5", six:"6", sept:"7", huit:"8",
+    neuf:"9", dix:"10", onze:"11", douze:"12", treize:"13", quatorze:"14",
+    quinze:"15", seize:"16", vingt:"20", trente:"30"
+  };
+  const t    = tRaw.replace(/\b(deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|trente)\b/g, m => motsNombres[m] || m);
   // Version sans apostrophes du tout (gère "aujour'dhui", "aujoud'hui", etc.)
   const tSans = t.replace(/['''`]/g,"");
   const mots  = tSans.split(/\s+/).filter(Boolean);
@@ -318,7 +327,8 @@ function detecterPeriode(texte) {
   const mS = tSans.match(/(\d+)\s*semaines?/);
   if (mS) return `les ${mS[1]} prochaines semaines`;
   const mJ = tSans.match(/(\d+)\s*(?:prochains?\s+)?jours?/);
-  if (mJ && parseInt(mJ[1])>1) return `les ${mJ[1]} prochains jours`;
+  if (mJ && parseInt(mJ[1])===2) return "aujourd'hui et demain";   // N=2 → wording explicite
+  if (mJ && parseInt(mJ[1])>1)   return `les ${mJ[1]} prochains jours`;
   if (mJ && parseInt(mJ[1])===1) return "la journée";
 
   // ── MOIS ─────────────────────────────────────────────────

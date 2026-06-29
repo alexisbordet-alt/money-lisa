@@ -198,7 +198,11 @@ function mettreAJourPeriode() {
     return;
   }
 
-  const newLabel = restants <= 1 ? "la journée" : `les ${restants} prochains jours`;
+  // Cas spécial : "aujourd'hui et demain" garde son wording sur J1 (restants=2).
+  // Sur J2, restants=1 → bascule à "la journée" comme les autres objectifs multi-jours.
+  const newLabel = restants <= 1
+    ? "la journée"
+    : (state.modeLabel === "aujourd'hui et demain" ? "aujourd'hui et demain" : `les ${restants} prochains jours`);
   if (newLabel !== state.modeLabel) {
     state.modeLabel = newLabel;
     sauvegarderState(state);
@@ -287,6 +291,13 @@ function detecterPeriode(texte) {
   const tSans = t.replace(/['''`]/g,"");
   const mots  = tSans.split(/\s+/).filter(Boolean);
   const proche = (mot,cibles) => cibles.some(c=>similarite(mot,c)<=2);
+
+  // ── AUJOURD'HUI ET DEMAIN — bi-jour (J + J+1) ─────────────
+  // ⚠️ DOIT être testé AVANT "aujourd'hui" tout seul, sinon "aujourd'hui et demain"
+  // matche le bloc juste en-dessous et part en mode 1 jour au lieu de 2.
+  // Variantes : "aujourd'hui et demain", "ajd et demain", "auj + demain", "today and tomorrow", etc.
+  const reAujDemain = /\b(?:aujourd?h?ui|ajd|auj(?:o|rd)?|today)\b[\s,]*(?:et|\+|&|and|plus)[\s,]*\bdemain\b|\bdemain\b[\s,]*(?:et|\+|&|and|plus)[\s,]*\b(?:aujourd?h?ui|ajd|auj(?:o|rd)?|today)\b|\btoday\s*(?:and|\+|&)\s*tomorrow\b/i;
+  if (reAujDemain.test(tSans)) return "aujourd'hui et demain";
 
   // ── AUJOURD'HUI — toutes les fautes d'orthographe ─────────
   // Supprime toutes les apostrophes du texte et cherche les variantes
@@ -2977,12 +2988,15 @@ app.event("app_mention", async ({event,say,client}) => {
         // Si multi-jours dans la période, configure le compteur de jours
         const matchJoursSur = periode.match(/^les (\d+) prochains jours$/);
         const matchMoisSur  = periode === "le mois";
+        const matchAujDemainSur = periode === "aujourd'hui et demain";
         if (matchJoursSur) {
           state.objectifNbJours=parseInt(matchJoursSur[1]); state.objectifDateDebut=getDateStr();
         } else if (matchMoisSur) {
           const now=new Date();
           state.objectifNbJours=new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate()+1;
           state.objectifDateDebut=getDateStr();
+        } else if (matchAujDemainSur) {
+          state.objectifNbJours=2; state.objectifDateDebut=getDateStr();
         }
         sauvegarderState(state);
         const detailLine = isMulti ? `\n• 📋 Détail des avancées : ${avanceList.map(m=>`${fmt(m)}€`).join(' + ')} — apparaîtront comme line-items dans le prochain compteur public` : '';
@@ -2997,6 +3011,7 @@ app.event("app_mention", async ({event,say,client}) => {
     const periode=detecterPeriode(reste);
     const matchJours = periode.match(/^les (\d+) prochains jours$/);
     const matchMois  = periode === "le mois";
+    const matchAujDemain = periode === "aujourd'hui et demain";
     console.log(`📝 OBJECTIF RESET via 'objectif X' par <@${event.user}> dans <#${event.channel}> : ancienTotal=${state.objectifDepart}€ → nouveauTotal=${nouvel}€, periode=${periode} — texte: ${JSON.stringify(texte.slice(0, 200))}`);
     state.objectifDepart=nouvel; state.objectif=nouvel; state.modeLabel=periode;
     state.buffer=[]; state.milestonesVus=[]; state.tsDejaComptes=[]; state.montantsComptes={}; state.nbCompteurs=0;
@@ -3007,9 +3022,11 @@ app.event("app_mention", async ({event,say,client}) => {
       const now=new Date();
       state.objectifNbJours=new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate()+1;
       state.objectifDateDebut=getDateStr();
+    } else if (matchAujDemain) {
+      state.objectifNbJours=2; state.objectifDateDebut=getDateStr();
     } else { state.objectifNbJours=null; state.objectifDateDebut=null; }
     sauvegarderState(state);
-    const explication = matchJours?` _(jour 1/${state.objectifNbJours}, se met à jour automatiquement)_`:matchMois?` _(${state.objectifNbJours} jours restants ce mois)_`:"";
+    const explication = matchJours?` _(jour 1/${state.objectifNbJours}, se met à jour automatiquement)_`:matchMois?` _(${state.objectifNbJours} jours restants ce mois)_`:matchAujDemain?` _(jour 1/2, se met à jour automatiquement)_`:"";
     await say(`🎯 L'objectif pour *${periode}* est fixé à *${nouvel.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}€*${explication}${isPrivate ? `\n_🔒 Mode private — pas de broadcast sur <#${PRINCIPAL_CHANNEL}>._` : ''}`);
     // Broadcast sur le channel principal (sauf si flag private)
     if (!isPrivate) await broadcastObjectifPrincipal(client, periode, nouvel, nouvel);
